@@ -73,7 +73,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 # In-memory log: pseudo_id -> log entry
 attendance_log = {}
 
-# Holds data for the most recent 8 Apollo events
+# Holds data for all of  Apollo events
 event_log = []  # Populate this in /scan_apollo command
 
 
