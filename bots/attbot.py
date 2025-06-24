@@ -480,7 +480,7 @@ async def scan_all_reactions(interaction: discord.Interaction,channel: TextChann
     scanned = 0
     emoji_summary = defaultdict(list)
 
-    # we want to checn every message in the channel this command is made in, and for every message amount mentioned when making the "/command",
+    # we want to check every message in the channel this command is made in, and for every message amount mentioned when making the "/command",
     # increment the scanned counter
     async for msg in interaction.channel.history(limit=limit):
         scanned += 1
@@ -504,7 +504,7 @@ async def scan_all_reactions(interaction: discord.Interaction,channel: TextChann
                 emoji_summary[str(reaction.emoji)].append(display_name)
 
     if not emoji_summary:
-        await interaction.followup.send(f"No reactions found in the last {limit} messages.")
+        await interaction.followup.send(f"No reactions found in the last {limit} messages of {channel.mention}.")
         return
 
     # set a list of lines as an f string to show number of scanned messages
