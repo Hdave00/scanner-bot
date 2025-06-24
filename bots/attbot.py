@@ -550,7 +550,8 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
     for msg_data in message_summaries:
         
         # Append the data to the lines list, and update k:v pairs
-        lines.append(f"**Message by {msg_data['author']}**: [{msg_data['content']}]({msg_data['link']})")
+        lines.append(f"**Message by {msg_data['author']}**: {msg_data['content']}")
+        lines.append(f"> [Jump to message]({msg_data['link']})")
 
         # Then for each emoji, user in the emoji_summary dict (we are unpacking the dict, using .items() to index into the dict)
         for emoji, users in msg_data['reactions'].items():
