@@ -466,8 +466,8 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
-@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 50)")
-async def scan_all_reactions(interaction: discord.Interaction,channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 50):
+@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 10)")
+async def scan_all_reactions(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 10):
 
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
 
@@ -482,7 +482,7 @@ async def scan_all_reactions(interaction: discord.Interaction,channel: TextChann
 
     # we want to check every message in the channel this command is made in, and for every message amount mentioned when making the "/command",
     # increment the scanned counter
-    async for msg in interaction.channel.history(limit=limit):
+    async for msg in channel.history(limit=limit):
         scanned += 1
 
         # then for every reaction in the messages we scanned, set the users to a list of all users who have reacted to store reactions
