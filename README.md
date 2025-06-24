@@ -6,7 +6,7 @@
 - [Discord API](https://discord.com/developers/docs/reference)
 - [Gateway API](https://discord.com/developers/docs/events/gateway)
 - [Rich Presence, bot-embed extraction and usage](https://discord.com/developers/docs/rich-presence/overview)
-- [Rate Limiting](https://discord.com/developers/docs/topics/permissions)
+- [Discord.py API wrapper github](https://github.com/Rapptz/discord.py)
 
 ## Overview
 
@@ -28,7 +28,7 @@ This bot **IS NOT** a replacement for Apollo, rather an adaptable secondary "dro
 
 ---
 
-### NOTE:- [Rate Limiting](https://discord.com/developers/docs/topics/permissions) is **not implemented for the Discord API**, because for most uses it should be sufficient to summarize data say, once a month or every week even. But just know that if you need it, **you will have to implement rate limiting** if your needs are at the larger end.
+### NOTE:- Rate Limiting is already implemented in the [Discord.py](https://github.com/Rapptz/discord.py) API wrapper.
 
 ## Project Structure
 

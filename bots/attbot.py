@@ -466,8 +466,8 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
-@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 10)")
-async def scan_all_reactions(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 10):
+@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 5)")
+async def scan_all_reactions(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 5):
 
     """ Function uses the TextChannel object from discord's library passed as a parameter, to allow the user to make this command
         in any channel and from any channel, that the bot has message history and other relevant permissions for. """
@@ -549,8 +549,9 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
     # the lines list to sort of concatonate the message data for the summaries list AND the reactions thereof
     for msg_data in message_summaries:
         
-        # Append the data to the lines list, and update k:v pairs
-        lines.append(f"**Message by {msg_data['author']}**: {msg_data['content']}")
+        # Append the data to the lines list, and update k:v pairs. Appending twice for better output and more readable, the second appnd is in markdown,
+        # for better discord look 
+        lines.append(f"**Message by {msg_data['author']}**: {msg_data['content']}\n")
         lines.append(f"> [Jump to message]({msg_data['link']})")
 
         # Then for each emoji, user in the emoji_summary dict (we are unpacking the dict, using .items() to index into the dict)
@@ -562,7 +563,7 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
             # Append the 'lines' list with the f string of each emoji, mapped to each set of users
             lines.append(f"> {emoji} - {len(users)} reaction(s) from: {', '.join(unique_users)}")
 
-        # Blank line between messages
+        # Blank line between messages, if the number of messages to be shown > 1
         lines.append("")
 
     await interaction.followup.send("\n".join(lines))
