@@ -469,6 +469,10 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 @app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 10)")
 async def scan_all_reactions(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 10):
 
+    """ Function uses the TextChannel object from discord's library passed as a parameter, to allow the user to make this command
+        in any channel and from any channel, that the bot has message history and other relevant permissions for. """
+
+
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
 
     # ensure the bot can read message history in the selected channel
