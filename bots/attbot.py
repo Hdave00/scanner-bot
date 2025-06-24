@@ -508,7 +508,7 @@ async def scan_all_reactions(interaction: discord.Interaction,channel: TextChann
         return
 
     # set a list of lines as an f string to show number of scanned messages
-    lines = [f"**Reactions Summary (from last {scanned} messages)**\n"]
+    lines = [f"**Reactions Summary (from last {scanned} messages in {channel.mention})**\n"]
 
     # then for each emoji, user in the emoji_summary dict (we are unpacking the dict, using .items() to index into the dict)
     for emoji, users in emoji_summary.items():
