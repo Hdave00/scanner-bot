@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 from discord.ext import commands
+from discord import TextChannel
 from discord import app_commands
 from collections import defaultdict
 import re
@@ -465,10 +466,15 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
-@app_commands.describe(limit="How many recent messages to scan (default is 50)")
-async def scan_all_reactions(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 50):
+@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 50)")
+async def scan_all_reactions(interaction: discord.Interaction,channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 50):
 
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
+
+    # ensure the bot can read message history in the selected channel
+    if not channel.permissions_for(interaction.guild.me).read_message_history:
+        await interaction.followup.send(f"Can't read message history in {channel.mention}.")
+        return
 
     # initialise scanned to 0, and a dict of emoji lists
     scanned = 0
