@@ -482,46 +482,87 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 
     # initialise scanned to 0, and a dict of emoji lists
     scanned = 0
-    emoji_summary = defaultdict(list)
+    
+    # instead of a single emoji_summary, map message -> emoji -> users
+    message_summaries = []
 
-    # we want to check every message in the channel this command is made in, and for every message amount mentioned when making the "/command",
-    # increment the scanned counter
+    # We want to check every message in the channel this command is made in, and for every message amount mentioned when making the "/command",
+    # increment the scanned counter, for the channel provided (dont use 'interaction.channel.history' if you want to preserve channel specificity)
     async for msg in channel.history(limit=limit):
         scanned += 1
 
-        # then for every reaction in the messages we scanned, set the users to a list of all users who have reacted to store reactions
-        for reaction in msg.reactions:
+        # Skip messages with no reactions
+        if not msg.reactions:
+            continue
 
+        # Temporary dict of lists of reactions to store reactions for this message
+        msg_reactions = defaultdict(list)
+
+        # Only consider users not bots
+        for reaction in msg.reactions:
             users = [user async for user in reaction.users()]
 
-            # Only consider users not bots
+            # Only considering users NOT bots, IMP CHECK!
             for user in users:
                 if user.bot:
                     continue
                 
-                # set a var member, using Discord's guild object and use the get_member method for that user.id, also set display_name to that members
+                # Set a var member, using Discord's guild object and use the get_member method for that user.id, also set display_name to that members
                 # display name, if the the user is a member, else just get the discord username (because nickname for non members might not be set)
                 member = interaction.guild.get_member(user.id)  
                 display_name = member.display_name if member else user.name
 
-                # append the emoji summary dict with a string representation of the reaction emojis like ":x:, :white_check_mark: ..." on the display_name
-                emoji_summary[str(reaction.emoji)].append(display_name)
+                # append the msg_reactions temp dict with the emoji mapped to the display_name
+                msg_reactions[str(reaction.emoji)].append(display_name)
 
-    if not emoji_summary:
+
+        if msg_reactions:
+
+            # Trim message content to first 100 chars for readability
+            content_preview = msg.content or "[Embed/Attachment/No Text]"
+            content_preview = (content_preview[:100] + "...") if len(content_preview) > 100 else content_preview
+
+            # Now append the message summaries list we made earlier at start of function, with all of the relevant data needed to make sense of the output
+            # The data in question is:
+                # who wrote the message
+                # shortened preview of message
+                # link to jump to og message
+                # a dict of emoji : list of users who reacted
+            message_summaries.append({
+
+            "author": msg.author.display_name,
+            "content": content_preview,
+            "link": msg.jump_url,
+            "reactions": msg_reactions
+
+            })
+
+    # Check for if the messages even exist
+    if not message_summaries:
         await interaction.followup.send(f"No reactions found in the last {limit} messages of {channel.mention}.")
         return
 
-    # set a list of lines as an f string to show number of scanned messages
+    # Set a list of lines as an f string to show number of scanned messages
     lines = [f"**Reactions Summary (from last {scanned} messages in {channel.mention})**\n"]
 
-    # then for each emoji, user in the emoji_summary dict (we are unpacking the dict, using .items() to index into the dict)
-    for emoji, users in emoji_summary.items():
+    # Now we create nested loops, the outer loop appends the message data, that we just appeneded to message/summaries, but here we want to append it to
+    # the lines list to sort of concatonate the message data for the summaries list AND the reactions thereof
+    for msg_data in message_summaries:
+        
+        # Append the data to the lines list, and update k:v pairs
+        lines.append(f"**Message by {msg_data['author']}**: [{msg_data['content']}]({msg_data['link']})")
 
-        # get a set of unique users
-        unique_users = set(users)
+        # Then for each emoji, user in the emoji_summary dict (we are unpacking the dict, using .items() to index into the dict)
+        for emoji, users in msg_data['reactions'].items():
 
-        # append the 'lines' list with the f string of each emoji, mapped to each set of users
-        lines.append(f"{emoji} - {len(users)} reaction(s) from: {', '.join(unique_users)}")
+            # Get a set of unique users
+            unique_users = set(users)
+
+            # Append the 'lines' list with the f string of each emoji, mapped to each set of users
+            lines.append(f"> {emoji} - {len(users)} reaction(s) from: {', '.join(unique_users)}")
+
+        # Blank line between messages
+        lines.append("")
 
     await interaction.followup.send("\n".join(lines))
 
