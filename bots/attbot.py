@@ -13,6 +13,7 @@ from discord import TextChannel
 from discord import app_commands
 from collections import defaultdict
 import re
+import random
 
 
 load_dotenv()
@@ -463,6 +464,43 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
     await interaction.followup.send(
         f"Scanned {scanned} Apollo events, logged {logged} attendees (limit: {limit})."
     )
+
+
+@bot.tree.command(name="flip", description="Flip a coin 'n' times.")
+@app_commands.describe(channel="Flip a coin", limit="How many flips to do (default is 1)")
+async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 1):
+
+    """  Command to flip a coin 'n' times. """
+
+    outcomes = [random.choice(["Heads", "Tails"]) for _ in range(limit)]
+
+    if limit == 1:
+        response = f"You flipped: **{outcomes[0]}**"
+
+    else:
+        heads = outcomes.count("Heads")
+        tails = outcomes.count("Tails")
+
+        response = (
+
+            f"you flipped the coin {limit} times:\n"
+            f"**Heads:** {heads}\n"
+            f"**Tails:** {tails}"
+
+        )
+    
+    await interaction.response.send_message(response)
+
+
+@bot.tree.command(name="rand", description="Generate a random number in a range.")
+@app_commands.describe(channel="Random number generator", limit="Set your upper range (1 to 1,000,000)")
+async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 1_000_000] = 100):
+
+    """ Generate a random number between 1 and `limit`. """
+
+    result = random.randint(1, limit)
+    await interaction.response.send_message(f"Random number (1 to {limit}) is: **{result}**")
+
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
