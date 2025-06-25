@@ -14,6 +14,7 @@ from discord import app_commands
 from collections import defaultdict
 import re
 import random
+import secrets
 
 
 load_dotenv()
@@ -494,11 +495,11 @@ async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 
 
 @bot.tree.command(name="rand", description="Generate a random number in a range.")
 @app_commands.describe(limit="Set your upper range (1 to 1,000,000)")
-async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 1_000_000] = 100):
+async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 1_000_001] = 100):
 
     """ Generate a random number between 1 and `limit`. """
 
-    result = random.randint(1, limit)
+    result = secrets.randbelow(limit) + 1
     await interaction.response.send_message(f"**{result}**")
 
 
