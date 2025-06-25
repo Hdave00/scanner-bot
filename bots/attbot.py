@@ -475,7 +475,7 @@ async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 
     outcomes = [random.choice(["Heads", "Tails"]) for _ in range(limit)]
 
     if limit == 1:
-        response = f"You flipped: **{outcomes[0]}**"
+        response = f"**{outcomes[0]}**"
 
     else:
         heads = outcomes.count("Heads")
@@ -483,7 +483,7 @@ async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 
 
         response = (
 
-            f"you flipped the coin {limit} times:\n"
+            f"coin was fipped {limit} times:\n"
             f"**Heads:** {heads}\n"
             f"**Tails:** {tails}"
 
@@ -499,7 +499,7 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
     """ Generate a random number between 1 and `limit`. """
 
     result = random.randint(1, limit)
-    await interaction.response.send_message(f"Random number (1 to {limit}) is: **{result}**")
+    await interaction.response.send_message(f"**{result}**")
 
 
 
