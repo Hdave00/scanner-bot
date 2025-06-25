@@ -467,7 +467,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 
 
 @bot.tree.command(name="flip", description="Flip a coin 'n' times.")
-@app_commands.describe(channel="Flip a coin", limit="How many flips to do (default is 1)")
+@app_commands.describe(limit="How many flips to do (default is 1)")
 async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 1):
 
     """  Command to flip a coin 'n' times. """
@@ -493,7 +493,7 @@ async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 
 
 
 @bot.tree.command(name="rand", description="Generate a random number in a range.")
-@app_commands.describe(channel="Random number generator", limit="Set your upper range (1 to 1,000,000)")
+@app_commands.describe(limit="Set your upper range (1 to 1,000,000)")
 async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 1_000_000] = 100):
 
     """ Generate a random number between 1 and `limit`. """
