@@ -539,7 +539,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
         await interaction.followup.send("Could not find 8 bot messages in that channel.")
         return
 
-    # Dict to count how many times each valid user reacted across the 8 messages
+    # Dict to count how many times each valid user reacted across the 8 messages.
     reaction_counts = defaultdict(int)
 
     # Here, for each message we go through every reaction, then list of who reacted, and count only if the suer is in valid_member_ids and append the 
