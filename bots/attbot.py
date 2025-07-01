@@ -528,7 +528,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
     # Fetch the last 8 bot messages (assume these are the ones with reactions to check) and store them in a list
     messages = []
 
-    async for msg in channel.history(limit):
+    async for msg in channel.history(limit=limit):
 
         if msg.author.bot:
             messages.append(msg)
@@ -539,7 +539,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
         await interaction.followup.send("Could not find 8 bot messages in that channel.")
         return
 
-    # Dict to count how many times each valid user reacted across the 8 messages.
+    # Dict to count how many times each valid user reacted across the 8 messages
     reaction_counts = defaultdict(int)
 
     # Here, for each message we go through every reaction, then list of who reacted, and count only if the suer is in valid_member_ids and append the 
@@ -551,7 +551,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
                     reaction_counts[user.id] += 1
 
     # Build summary
-    lines = [" **Reaction Summary (Last 8 Events)**\n_Excludes reserves and guests_\n"]
+    lines = [f"**Reaction Summary (Last {len(messages)} Events)**\n_Excludes reserves and guests_\n"]
 
     # Compare all valid members against the memebrs who reacted 
     for member in valid_members:
