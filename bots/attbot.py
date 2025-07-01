@@ -528,9 +528,8 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
     # Get the most recent `limit` events from the global event_log
     recent_events = event_log[-limit:]
     guild = interaction.guild
-    excluded_roles = {"Guest", "Reserve"}
+    excluded_roles = {"Guest", "Reserves"}
 
-    # Valid members (non-bots, not guest/reserve)
     valid_members = [
         m for m in guild.members
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
@@ -544,22 +543,24 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
             if user_id in valid_member_ids:
                 reaction_counts[user_id] += 1
 
-    # Filter members who never responded
-    never_responded_members = [
+    # Filter members who responded less than 4 times (i.e. inactive/low response)
+    low_response_members = [
         member for member in valid_members
-        if reaction_counts.get(member.id, 0) == 0
+        if reaction_counts.get(member.id, 0) < 4
     ]
 
-    lines = [f"** Never Responded to Any of the Last {limit} Events**\n_Excludes guests, reserves, and bots_\n"]
+    lines = [f"** Low Attendance (Less than 4/{limit} Reactions)**\n_Excludes guests, reserves, and bots_\n"]
 
-    if never_responded_members:
-        for member in sorted(never_responded_members, key=lambda m: m.display_name.lower()):
-            lines.append(f"**{member.display_name}** - Reacted: 0/{limit} ✅❌ | No Response: {limit} ")
+    if low_response_members:
+        for member in sorted(low_response_members, key=lambda m: m.display_name.lower()):
+            count = reaction_counts.get(member.id, 0)
+            no_response = limit - count
+            lines.append(f"**{member.display_name}** - Reacted: {count}/{limit} ✅❌ | No Response: {no_response} ")
 
         lines.append("\n **Names**:")
-        lines.extend(f"- {member.display_name}" for member in never_responded_members)
+        lines.extend(f"- {member.display_name}" for member in low_response_members)
     else:
-        lines.append(" Everyone responded at least once!")
+        lines.append(" Everyone responded to at least 4 events!")
 
     message = "\n".join(lines)
     if len(message) > 1900:
