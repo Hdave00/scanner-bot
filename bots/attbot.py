@@ -514,65 +514,52 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
     
     await interaction.response.defer(thinking=True)
 
-    # Runtime check (redundant but discord people cant be trusted)
-    if limit < 8:
-        await interaction.followup.send("You must scan at least 8 messages.")
-        return
-
     # role check
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.followup.send("You must be an NCO to use this command.")
         return
-
-    # Set guild and excluded roles (for our server only so that it knows the server)
+    
+    # Check if we have enough event data
+    if len(event_log) < limit:
+        await interaction.followup.send(f"Only {len(event_log)} events have been scanned. Try `/scan_apollo` first.")
+        return
+    
+    # Get the most recent `limit` events from the global event_log
+    recent_events = event_log[-limit:]
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserve"}
 
-    # Get all valid members (not bots, not guests/reserves)
+    # Valid members (non-bots, not guest/reserve)
     valid_members = [
-        member for member in guild.members
-        if not member.bot and not any(role.name in excluded_roles for role in member.roles)
+        m for m in guild.members
+        if not m.bot and not any(role.name in excluded_roles for role in m.roles)
     ]
     valid_member_ids = {m.id for m in valid_members}
 
-    # Fetch the last 8 bot messages (assume these are the ones with reactions to check) and store them in a list
-    messages = []
-
-    async for msg in channel.history(limit=limit):
-
-        if msg.author.bot:
-            messages.append(msg)
-        if len(messages) == 8:
-            break
-
-    if len(messages) < 8:
-        await interaction.followup.send("Could not find 8 bot messages in that channel.")
-        return
-
-    # Dict to count how many times each valid user reacted across the 8 messages
+    # Tally accepted reactions
     reaction_counts = defaultdict(int)
+    for event in recent_events:
+        for user_id, _ in event.get("accepted", []):
+            if user_id in valid_member_ids:
+                reaction_counts[user_id] += 1
 
-    # Here, for each message we go through every reaction, then list of who reacted, and count only if the suer is in valid_member_ids and append the 
-    # reaction_counts dict 
-    for msg in messages:
-        for reaction in msg.reactions:
-            async for user in reaction.users():
-                if user.id in valid_member_ids:
-                    reaction_counts[user.id] += 1
+    # Filter members who never responded
+    never_responded_members = [
+        member for member in valid_members
+        if reaction_counts.get(member.id, 0) == 0
+    ]
 
-    # Build summary
-    lines = [f"**Reaction Summary (Last {len(messages)} Events)**\n_Excludes reserves and guests_\n"]
+    lines = [f"** Never Responded to Any of the Last {limit} Events**\n_Excludes guests, reserves, and bots_\n"]
 
-    # Compare all valid members against the memebrs who reacted 
-    for member in valid_members:
-        uid = member.id
-        reacted = reaction_counts.get(uid, 0)
-        no_response = 8 - reacted
-        lines.append(f"**{member.display_name}** - Reacted: {reacted}/8 ✅❌ | No Response: {no_response} ")
+    if never_responded_members:
+        for member in sorted(never_responded_members, key=lambda m: m.display_name.lower()):
+            lines.append(f"**{member.display_name}** - Reacted: 0/{limit} ✅❌ | No Response: {limit} ")
 
-    # Sort by most no responses first
-    lines.sort(key=lambda line: int(line.split("No Response: ")[1].split(" ")[0]), reverse=True)
+        lines.append("\n **Names**:")
+        lines.extend(f"- {member.display_name}" for member in never_responded_members)
+    else:
+        lines.append(" Everyone responded at least once!")
 
     message = "\n".join(lines)
     if len(message) > 1900:
