@@ -233,6 +233,8 @@ async def hilf(interaction: discord.Interaction):
 
         `/staff_meeting_notes` -> Paste staff meeting notes markdown text template.
 
+        `/summary` -> Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.
+
         > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
         """
     await interaction.followup.send(help_text)
@@ -502,6 +504,71 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
     result = secrets.randbelow(limit) + 1
     await interaction.response.send_message(f"**{result}**")
 
+
+@bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
+@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 8, max is 24)")
+async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 24):
+
+    """ Command that generates a summary of all users excluding inactive/reserve members or guest members.
+        Shows data like attendance percentage, which active members reacted the least, most, never, always etc. """
+    
+    await interaction.response.defer(thinking=True)
+
+    # Set guild and excluded roles (for our server only so that it knows the server)
+    guild = interaction.guild
+    excluded_roles = {"Guest", "Reserve"}
+
+    # Get all valid members (not bots, not guests/reserves)
+    valid_members = [
+        member for member in guild.members
+        if not member.bot and not any(role.name in excluded_roles for role in member.roles)
+    ]
+    valid_member_ids = {m.id for m in valid_members}
+
+    # Fetch the last 8 bot messages (assume these are the ones with reactions to check) and store them in a list
+    messages = []
+
+    async for msg in channel.history(limit):
+
+        if msg.author.bot:
+            messages.append(msg)
+        if len(messages) == 8:
+            break
+
+    if len(messages) < 8:
+        await interaction.followup.send("Could not find 8 bot messages in that channel.")
+        return
+
+    # Dict to count how many times each valid user reacted across the 8 messages
+    reaction_counts = defaultdict(int)
+
+    # Here, for each message we go through every reaction, then list of who reacted, and count only if the suer is in valid_member_ids and append the 
+    # reaction_counts dict 
+    for msg in messages:
+        for reaction in msg.reactions:
+            async for user in reaction.users():
+                if user.id in valid_member_ids:
+                    reaction_counts[user.id] += 1
+
+    # Build summary
+    lines = [" **Reaction Summary (Last 8 Events)**\n_Excludes reserves and guests_\n"]
+
+    # Compare all valid members against the memebrs who reacted 
+    for member in valid_members:
+        uid = member.id
+        reacted = reaction_counts.get(uid, 0)
+        no_response = 8 - reacted
+        lines.append(f"**{member.display_name}** - Reacted: {reacted}/8 ✅❌ | No Response: {no_response} ")
+
+    # Sort by most no responses first
+    lines.sort(key=lambda line: int(line.split("No Response: ")[1].split(" ")[0]), reverse=True)
+
+    message = "\n".join(lines)
+    if len(message) > 1900:
+        for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
+            await interaction.followup.send(chunk)
+    else:
+        await interaction.followup.send(message)
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
