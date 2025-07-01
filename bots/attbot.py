@@ -507,12 +507,23 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
 @app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 8, max is 24)")
-async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 24):
+async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 8):
 
     """ Command that generates a summary of all users excluding inactive/reserve members or guest members.
         Shows data like attendance percentage, which active members reacted the least, most, never, always etc. """
     
     await interaction.response.defer(thinking=True)
+
+    # Runtime check (redundant but discord people cant be trusted)
+    if limit < 8:
+        await interaction.followup.send("You must scan at least 8 messages.")
+        return
+
+    # role check
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     # Set guild and excluded roles (for our server only so that it knows the server)
     guild = interaction.guild
