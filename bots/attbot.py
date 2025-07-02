@@ -165,13 +165,13 @@ async def on_raw_reaction_add(payload):
 # TODO: Command that shows attendance for each member, filterable by member, rank, and timeframe
 
 
-@bot.tree.command(name="check_member", description="Check a member's attendance over recent Apollo events.")
-@app_commands.describe(user="The member to check", limit="How many recent events to check (default 8, max 24)")
-async def check_member(
-    interaction: discord.Interaction,
-    user: discord.Member,
-    limit: app_commands.Range[int, 1, 24] = 8,
-):
+@bot.tree.command(name="check_member", description="Show attendance data about a single member.")
+@app_commands.describe(channel="The channel to scan for reactions", limit="Limit of checking members 5 at a time.")
+async def check_member(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8,):
+
+    """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
+
+    # use member_data list ot keep track of member activity (params = squad, rank, name)
     await interaction.response.defer(thinking=True)
 
     if len(event_log) < limit:
@@ -198,7 +198,6 @@ async def check_member(
     )
 
     await interaction.followup.send(msg)
-
 
 
 # debug attendance log
