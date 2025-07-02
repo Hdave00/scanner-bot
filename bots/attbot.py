@@ -510,58 +510,68 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
 async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 8):
 
     """ Command that generates a summary of all users excluding inactive/reserve members or guest members.
-        Shows data like attendance percentage, which active members reacted the least, most, never, always etc. """
-    
+            - Shows data like attendance percentage, which active members reacted the least, most, never, always etc.
+    """
+
     await interaction.response.defer(thinking=True)
 
-    # role check
+    # Role perms check
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.followup.send("You must be an NCO to use this command.")
         return
-    
-    # Check if we have enough event data
+
+    # Cant go below 8 events, make sure we have enough data
     if len(event_log) < limit:
         await interaction.followup.send(f"Only {len(event_log)} events have been scanned. Try `/scan_apollo` first.")
         return
-    
-    # Get the most recent `limit` events from the global event_log
+
+    # Set a recent events list on the event_log global list and get only the data mentioned in the limit arg
+    # Also create a guild var and exlude guest and reserves roles
     recent_events = event_log[-limit:]
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserves"}
 
+    # To get the filtered non responsive members:
+
+    # First, filter valid members (no bots, no guest/reserves)
     valid_members = [
         m for m in guild.members
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
     ]
     valid_member_ids = {m.id for m in valid_members}
 
-    # Tally accepted reactions
+    # Then count reactions per member
     reaction_counts = defaultdict(int)
+
+    # Iterate over each event in recent events and get the accepted ones and append the reaction counts dict (k= member, v= n of reactions)
     for event in recent_events:
         for user_id, _ in event.get("accepted", []):
             if user_id in valid_member_ids:
                 reaction_counts[user_id] += 1
 
-    # Filter members who responded less than 4 times (i.e. inactive/low response)
-    low_response_members = [
-        member for member in valid_members
-        if reaction_counts.get(member.id, 0) < 4
-    ]
+    # Bucket members by how many times they reacted (only if < 4)
+    buckets = defaultdict(list)  # key = num reactions, value = list of members
 
-    lines = [f"** Low Attendance (Less than 4/{limit} Reactions)**\n_Excludes guests, reserves, and bots_\n"]
+    for member in valid_members:
+        count = reaction_counts.get(member.id, 0)
+        if count < 4:
+            buckets[count].append(member)
 
-    if low_response_members:
-        for member in sorted(low_response_members, key=lambda m: m.display_name.lower()):
-            count = reaction_counts.get(member.id, 0)
-            no_response = limit - count
-            lines.append(f"**{member.display_name}** - Reacted: {count}/{limit} ✅❌ | No Response: {no_response} ")
+    # Step 4: Build the message
+    lines = [f"** Attendance Breakdown (Last {limit} Events)**", "_Excludes Guests, Reserves, and Bots_\n"]
 
-        lines.append("\n **Names**:")
-        lines.extend(f"- {member.display_name}" for member in low_response_members)
+    if not buckets:
+        lines.append("All active members reacted to 4 or more events!")
     else:
-        lines.append(" Everyone responded to at least 4 events!")
+        for i in range(0, 4):
+            members = buckets.get(i, [])
+            if members:
+                lines.append(f"\n**Members with {i}/{limit} Reactions:**")
+                for member in sorted(members, key=lambda m: m.display_name.lower()):
+                    lines.append(f"- **{member.display_name}** ✅❌ | No Response: {limit - i}")
 
+    # Final message formatting
     message = "\n".join(lines)
     if len(message) > 1900:
         for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
