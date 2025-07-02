@@ -238,7 +238,7 @@ async def hilf(interaction: discord.Interaction):
 
         `/summary` -> Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.
 
-        `/check_member` -> Shows activity summary about a selected member for upto 3 past events. 
+        `/member_check` -> Shows activity summary about a selected member for upto 3 past months (24 events, 3 * 8 bot posts). 
 
         > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
         """
@@ -474,9 +474,9 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
     )
 
 
-@bot.tree.command(name="check_member", description="Show attendance data about a single member.")
+@bot.tree.command(name="member_check", description="Show attendance data about a single member.")
 @app_commands.describe(user="The member to check", limit="Limit of how many events to check for. (default 8, max 24)")
-async def check_member(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8):
+async def member_check(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8):
 
     """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
 
