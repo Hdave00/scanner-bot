@@ -537,37 +537,35 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
     ]
     valid_member_ids = {m.id for m in valid_members}
+    id_to_member = {m.id: m for m in valid_members}
 
-    # Count all reactions (accepted + declined)
+    # Step 2: Count responses (accepted or declined)
     response_counts = defaultdict(int)
-    pretty_names = {}
 
     for event in recent_events:
         for category in ("accepted", "declined"):
-            for user_id, pretty in event.get(category, []):
+            for user_id, _ in event.get(category, []):
                 if user_id in valid_member_ids:
                     response_counts[user_id] += 1
-                    pretty_names[user_id] = pretty.strip()
 
-    # Bucket those who responded < 4 times
-    buckets = defaultdict(list)
-    for member in valid_members:
-        count = response_counts.get(member.id, 0)
-        if count < 4:
-            buckets[count].append(member)
+    # Categorize those who responded < 4 times
+    low_response_members = [
+        id_to_member[member_id] for member_id in valid_member_ids
+        if response_counts.get(member_id, 0) < 4
+    ]
 
     # Format message
-    lines = [f"**Low Attendance Summary (Last {limit} Events)**", "_Only members with < 4 responses shown_\n"]
+    lines = [
+        f"**Low Attendance Summary (Last {limit} Events)**",
+        "_Shows only members with fewer than 4 total responses (✅ or ❌)_\n"
+    ]
 
-    if not buckets:
-        lines.append("All active members responded to at least 4 events!")
+    if not low_response_members:
+        lines.append("All active members responded to 4 or more events!")
     else:
-        for i in range(0, 4):  # 0–3 reactions only
-            group = buckets.get(i, [])
-            if group:
-                lines.append(f"\n**Members with {i}/{limit} Responses:**")
-                for member in sorted(group, key=lambda m: m.display_name.lower()):
-                    lines.append(f"- **{member.display_name}** ✅❌ | No Response: {limit - i}")
+        for member in sorted(low_response_members, key=lambda m: m.display_name.lower()):
+            count = response_counts.get(member.id, 0)
+            lines.append(f"- **{member.display_name}** ✅❌ | Responded: {count}/{limit} | No Response: {limit - count}")
 
     message = "\n".join(lines)
 
