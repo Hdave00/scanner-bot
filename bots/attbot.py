@@ -177,7 +177,7 @@ async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     found = 0
@@ -202,7 +202,7 @@ async def recent_authors(interaction: discord.Interaction, limit: int = 20):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     authors = set()
@@ -261,7 +261,7 @@ async def staff_meeting_notes(interaction: discord.Interaction):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     try:
@@ -289,7 +289,7 @@ async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     await interaction.response.defer()
@@ -341,7 +341,7 @@ async def debug_duplicates(interaction: discord.Interaction):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     seen = defaultdict(set)
@@ -378,7 +378,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     # initialise scanned and logged as 0
@@ -510,7 +510,7 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     await interaction.response.defer(thinking=True)
@@ -570,7 +570,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     if len(event_log) < limit:
@@ -636,7 +636,7 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
@@ -745,7 +745,7 @@ async def leaderboard(interaction: discord.Interaction):
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.followup.send("You must be an NCO to use this command.")
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
     # if the global dict "event_log" is empty, then no messages have been scanned
