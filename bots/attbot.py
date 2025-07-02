@@ -480,23 +480,26 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
     """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
 
-    
     await interaction.response.defer(thinking=True)
 
+    # add check to make sure we are above the min limit
     if len(event_log) < limit:
         await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
         return
 
+    # save recent events as the data in even_log glob list and limit it by the provided limit
     recent_events = event_log[-limit:]
     accepted = 0
     declined = 0
 
+    # Increment for each event in the recent events if any user with unique id has accepted or declines and increment accordingly
     for event in recent_events:
         if any(uid == user.id for uid, _ in event.get("accepted", [])):
             accepted += 1
         elif any(uid == user.id for uid, _ in event.get("declined", [])):
             declined += 1
 
+    # for people who havent responded
     no_response = limit - (accepted + declined)
 
     msg = (
