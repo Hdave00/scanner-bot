@@ -79,6 +79,8 @@ attendance_log = {}
 # Holds data for all of  Apollo events
 event_log = []  # Populate this in /scan_apollo command
 
+# Holds data temporarily by scanning member activity
+member_data = []
 
 # already logged function that removes duplicates
 def already_logged(pseudo_id):
@@ -160,6 +162,44 @@ async def on_raw_reaction_add(payload):
 # TODO: Set up a command like /post_summary to auto-post attendance summaries at the end of the month in a formatted embed.
 # TODO: Host the bot on a server so its always up
 # TODO: Improve /leaderboard by including the event name (if found in embed.title or embed.descriptio) not applicable for our clan (events not named)
+# TODO: Command that shows attendance for each member, filterable by member, rank, and timeframe
+
+
+@bot.tree.command(name="check_member", description="Check a member's attendance over recent Apollo events.")
+@app_commands.describe(user="The member to check", limit="How many recent events to check (default 8, max 24)")
+async def check_member(
+    interaction: discord.Interaction,
+    user: discord.Member,
+    limit: app_commands.Range[int, 1, 24] = 8,
+):
+    await interaction.response.defer(thinking=True)
+
+    if len(event_log) < limit:
+        await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
+        return
+
+    recent_events = event_log[-limit:]
+    accepted = 0
+    declined = 0
+
+    for event in recent_events:
+        if any(uid == user.id for uid, _ in event.get("accepted", [])):
+            accepted += 1
+        elif any(uid == user.id for uid, _ in event.get("declined", [])):
+            declined += 1
+
+    no_response = limit - (accepted + declined)
+
+    msg = (
+        f"**Attendance for {user.display_name}** (Last {limit} Events)\n"
+        f"Accepted: **{accepted}**\n"
+        f"Declined: **{declined}**\n"
+        f"No Response: **{no_response}**"
+    )
+
+    await interaction.followup.send(msg)
+
+
 
 # debug attendance log
 @bot.command()
