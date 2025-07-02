@@ -487,55 +487,32 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
         await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
         return
 
-    # save recent events as the data in even_log glob list and limit it by the provided limit
+    # normalize the user name like scan_apollo does
+    normalized_target = normalize_name(user.display_name)
+
     recent_events = event_log[-limit:]
     accepted = 0
     declined = 0
 
-    # Increment for each event in the recent events if any user with unique id has accepted or declines and increment accordingly
     for event in recent_events:
-        if any(uid == user.id for uid, _ in event.get("accepted", [])):
+        accepted_names = [uid for uid, _ in event.get("accepted", [])]
+        declined_names = [uid for uid, _ in event.get("declined", [])]
+
+        if normalized_target in accepted_names:
             accepted += 1
-        elif any(uid == user.id for uid, _ in event.get("declined", [])):
+        elif normalized_target in declined_names:
             declined += 1
 
-    # for people who havent responded
     no_response = limit - (accepted + declined)
 
     msg = (
         f"**Attendance for {user.display_name}** (Last {limit} Events)\n"
-        f"Accepted: **{accepted}**\n"
-        f"Declined: **{declined}**\n"
+        f"Accepted: **{accepted}** ✅\n"
+        f"Declined: **{declined}** ❌\n"
         f"No Response: **{no_response}**"
     )
 
     await interaction.followup.send(msg)
-
-
-@bot.tree.command(name="flip", description="Flip a coin 'n' times.")
-@app_commands.describe(limit="How many flips to do (default is 1)")
-async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 1):
-
-    """  Command to flip a coin 'n' times. """
-
-    outcomes = [random.choice(["Heads", "Tails"]) for _ in range(limit)]
-
-    if limit == 1:
-        response = f"**{outcomes[0]}**"
-
-    else:
-        heads = outcomes.count("Heads")
-        tails = outcomes.count("Tails")
-
-        response = (
-
-            f"coin was fipped {limit} times:\n"
-            f"**Heads:** {heads}\n"
-            f"**Tails:** {tails}"
-
-        )
-    
-    await interaction.response.send_message(response)
 
 
 @bot.tree.command(name="rand", description="Generate a random number in a range.")
