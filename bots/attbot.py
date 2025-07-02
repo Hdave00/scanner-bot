@@ -166,7 +166,7 @@ async def on_raw_reaction_add(payload):
 
 
 @bot.tree.command(name="check_member", description="Show attendance data about a single member.")
-@app_commands.describe(channel="The channel to scan for reactions", limit="Limit of checking members 5 at a time.")
+@app_commands.describe(limit="Limit of how many events to check for. (default 8, max 24)")
 async def check_member(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8,):
 
     """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
