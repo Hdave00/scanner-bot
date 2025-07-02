@@ -515,64 +515,62 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
 
     await interaction.response.defer(thinking=True)
 
-    # Role perms check
+    # role check
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.followup.send("You must be an NCO to use this command.")
         return
 
-    # Cant go below 8 events, make sure we have enough data
+    # Check if we have enough event data
     if len(event_log) < limit:
         await interaction.followup.send(f"Only {len(event_log)} events have been scanned. Try `/scan_apollo` first.")
         return
 
-    # Set a recent events list on the event_log global list and get only the data mentioned in the limit arg
-    # Also create a guild var and exlude guest and reserves roles
+    # Get the most recent limit events from the global event_log
     recent_events = event_log[-limit:]
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserves"}
 
-    # To get the filtered non responsive members:
-
-    # First, filter valid members (no bots, no guest/reserves)
+    # Filter members (exclude bots and guest/reserves)
     valid_members = [
         m for m in guild.members
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
     ]
     valid_member_ids = {m.id for m in valid_members}
 
-    # Then count reactions per member
-    reaction_counts = defaultdict(int)
+    # Count all reactions (accepted + declined)
+    response_counts = defaultdict(int)
+    pretty_names = {}
 
-    # Iterate over each event in recent events and get the accepted ones and append the reaction counts dict (k= member, v= n of reactions)
     for event in recent_events:
-        for user_id, _ in event.get("accepted", []):
-            if user_id in valid_member_ids:
-                reaction_counts[user_id] += 1
+        for category in ("accepted", "declined"):
+            for user_id, pretty in event.get(category, []):
+                if user_id in valid_member_ids:
+                    response_counts[user_id] += 1
+                    pretty_names[user_id] = pretty.strip()
 
-    # Bucket members by how many times they reacted (only if < 4)
-    buckets = defaultdict(list)  # key = num reactions, value = list of members
-
+    # Bucket those who responded < 4 times
+    buckets = defaultdict(list)
     for member in valid_members:
-        count = reaction_counts.get(member.id, 0)
+        count = response_counts.get(member.id, 0)
         if count < 4:
             buckets[count].append(member)
 
-    # Step 4: Build the message
-    lines = [f"** Attendance Breakdown (Last {limit} Events)**", "_Excludes Guests, Reserves, and Bots_\n"]
+    # Format message
+    lines = [f"**Low Attendance Summary (Last {limit} Events)**", "_Only members with < 4 responses shown_\n"]
 
     if not buckets:
-        lines.append("All active members reacted to 4 or more events!")
+        lines.append("All active members responded to at least 4 events!")
     else:
-        for i in range(0, 4):
-            members = buckets.get(i, [])
-            if members:
-                lines.append(f"\n**Members with {i}/{limit} Reactions:**")
-                for member in sorted(members, key=lambda m: m.display_name.lower()):
+        for i in range(0, 4):  # 0–3 reactions only
+            group = buckets.get(i, [])
+            if group:
+                lines.append(f"\n**Members with {i}/{limit} Responses:**")
+                for member in sorted(group, key=lambda m: m.display_name.lower()):
                     lines.append(f"- **{member.display_name}** ✅❌ | No Response: {limit - i}")
 
-    # Final message formatting
     message = "\n".join(lines)
+
     if len(message) > 1900:
         for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
             await interaction.followup.send(chunk)
