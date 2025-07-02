@@ -238,7 +238,11 @@ async def hilf(interaction: discord.Interaction):
 
         `/summary` -> Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.
 
-        `/check_member` -> Shows activity summary about a selected member for upto 3 past months (24 events, 3 * 8 bot posts). 
+        `/check_member` -> Shows activity summary about a selected member for upto 3 past months (24 events, 3 * 8 bot posts).
+
+        `/flip` -> Flip a coin n number of times. Default 1.
+
+        `/rand` -> Generate a random number between 0 and 1,000,000 (max n numbers 100)
 
         > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
         """
