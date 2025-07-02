@@ -159,45 +159,10 @@ async def on_raw_reaction_add(payload):
 -----------------------------------------------------------------------------------------------------------------------------------------------------
 """
 
-# TODO: Set up a command like /post_summary to auto-post attendance summaries at the end of the month in a formatted embed.
-# TODO: Host the bot on a server so its always up
+# TODO: Set up a command like /post_summary to auto-post attendance summaries at the end of the month in a formatted embed. 
 # TODO: Improve /leaderboard by including the event name (if found in embed.title or embed.descriptio) not applicable for our clan (events not named)
 # TODO: Command that shows attendance for each member, filterable by member, rank, and timeframe
 
-
-@bot.tree.command(name="check_member", description="Show attendance data about a single member.")
-@app_commands.describe(user="The member to check", limit="Limit of how many events to check for. (default 8, max 24)")
-async def check_member(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8):
-
-    """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
-
-    # use member_data list ot keep track of member activity (params = squad, rank, name)
-    await interaction.response.defer(thinking=True)
-
-    if len(event_log) < limit:
-        await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
-        return
-
-    recent_events = event_log[-limit:]
-    accepted = 0
-    declined = 0
-
-    for event in recent_events:
-        if any(uid == user.id for uid, _ in event.get("accepted", [])):
-            accepted += 1
-        elif any(uid == user.id for uid, _ in event.get("declined", [])):
-            declined += 1
-
-    no_response = limit - (accepted + declined)
-
-    msg = (
-        f"**Attendance for {user.display_name}** (Last {limit} Events)\n"
-        f"Accepted: **{accepted}**\n"
-        f"Declined: **{declined}**\n"
-        f"No Response: **{no_response}**"
-    )
-
-    await interaction.followup.send(msg)
 
 
 # debug attendance log
@@ -243,7 +208,6 @@ async def recent_authors(interaction: discord.Interaction, limit: int = 20):
     )
 
 
-# TODO: Make a /help_awards_bot command
 @bot.tree.command(name="hilf", description="Show all available commands and their usage.")
 async def hilf(interaction: discord.Interaction):
 
@@ -274,6 +238,8 @@ async def hilf(interaction: discord.Interaction):
 
         `/summary` -> Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.
 
+        `/check_member` -> Shows activity summary about a selected member for upto 3 past events. 
+
         > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
         """
     await interaction.followup.send(help_text)
@@ -281,7 +247,7 @@ async def hilf(interaction: discord.Interaction):
 
 @bot.tree.command(name="staff_meeting_notes", description="Paste staff meeting note template.")
 async def staff_meeting_notes(interaction: discord.Interaction):
-    await interaction.response.defer()  # defer in case it takes a moment
+    await interaction.response.defer(thinking=True)  # defer in case it takes a moment
 
     try:
         with open('staff_meeting_note.md', 'r', encoding='utf-8') as file:
@@ -508,6 +474,41 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
     )
 
 
+@bot.tree.command(name="check_member", description="Show attendance data about a single member.")
+@app_commands.describe(user="The member to check", limit="Limit of how many events to check for. (default 8, max 24)")
+async def check_member(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8):
+
+    """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
+
+    
+    await interaction.response.defer(thinking=True)
+
+    if len(event_log) < limit:
+        await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
+        return
+
+    recent_events = event_log[-limit:]
+    accepted = 0
+    declined = 0
+
+    for event in recent_events:
+        if any(uid == user.id for uid, _ in event.get("accepted", [])):
+            accepted += 1
+        elif any(uid == user.id for uid, _ in event.get("declined", [])):
+            declined += 1
+
+    no_response = limit - (accepted + declined)
+
+    msg = (
+        f"**Attendance for {user.display_name}** (Last {limit} Events)\n"
+        f"Accepted: **{accepted}**\n"
+        f"Declined: **{declined}**\n"
+        f"No Response: **{no_response}**"
+    )
+
+    await interaction.followup.send(msg)
+
+
 @bot.tree.command(name="flip", description="Flip a coin 'n' times.")
 @app_commands.describe(limit="How many flips to do (default is 1)")
 async def flip(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 1):
@@ -717,6 +718,7 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
     await interaction.followup.send("\n".join(lines))
 
 
+# TODO: Add explicit Astro Award and Good Conduct award automatically in the end summary
 # The command to show the leaderboard
 # for slash commands using @bot.tree.command, the callback function must accept a discord.Interaction as the first argument, not ctx
 # wherever using ctx.send(), it should become interaction.response.send_message() or interaction.followup.send() depending on 
