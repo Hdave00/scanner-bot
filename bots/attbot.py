@@ -164,7 +164,6 @@ async def on_raw_reaction_add(payload):
 # TODO: Command that shows attendance for each member, filterable by member, rank, and timeframe
 
 
-
 # debug attendance log
 @bot.command()
 async def dump_attendance(ctx):
@@ -175,6 +174,11 @@ async def dump_attendance(ctx):
 @bot.tree.command(name="show_apollo_embeds", description="Show Apollo embed descriptions.")
 @app_commands.describe(limit="Number of messages to scan (default 50)")
 async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     found = 0
     limit = min(limit, 200)
@@ -195,6 +199,11 @@ async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
 @bot.tree.command(name="recent_authors", description="Show recent authors from the channel.")
 @app_commands.describe(limit="Number of messages to scan (default 20)")
 async def recent_authors(interaction: discord.Interaction, limit: int = 20):
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     authors = set()
     limit = min(limit, 200)
@@ -231,9 +240,6 @@ async def hilf(interaction: discord.Interaction):
         `/debug_duplicates` -> If you get duplicate reactions, you check how many and which of those were duplicate and why, since this will be a common
                                 issue, especially for escape sequences and non standard usernames.
 
-        `/dump_attendance` -> Debugs all current entries. If the `/scan_apollo` command isn't used before had it will always return 0 as the procedure is
-                                sequential to save memory and improve performance.
-
         `/staff_meeting_notes` -> Paste staff meeting notes markdown text template.
 
         `/summary` -> Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.
@@ -252,6 +258,11 @@ async def hilf(interaction: discord.Interaction):
 @bot.tree.command(name="staff_meeting_notes", description="Paste staff meeting note template.")
 async def staff_meeting_notes(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     try:
         with open('staff_meeting_note.md', 'r', encoding='utf-8') as file:
@@ -276,6 +287,10 @@ async def staff_meeting_notes(interaction: discord.Interaction):
 @app_commands.describe(limit="How many recent messages to scan (default 50)")
 async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
 
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     await interaction.response.defer()
     found = False
@@ -323,7 +338,11 @@ async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
 
 @bot.tree.command(name="debug_duplicates", description="Check for inconsistent (duplicate-looking) usernames in attendance log.")
 async def debug_duplicates(interaction: discord.Interaction):
-    from collections import defaultdict
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     seen = defaultdict(set)
 
@@ -356,6 +375,11 @@ async def debug_duplicates(interaction: discord.Interaction):
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
 async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     # initialise scanned and logged as 0
     scanned = 0
@@ -484,6 +508,11 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
     """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
 
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
+
     await interaction.response.defer(thinking=True)
 
     # add check to make sure we are above the min limit
@@ -605,6 +634,10 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
     """ Function uses the TextChannel object from discord's library passed as a parameter, to allow the user to make this command
         in any channel and from any channel, that the bot has message history and other relevant permissions for. """
 
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
 
@@ -709,6 +742,11 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 # whether we're deferring the response.
 @bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined for the last 8 events")
 async def leaderboard(interaction: discord.Interaction):
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.followup.send("You must be an NCO to use this command.")
+        return
 
     # if the global dict "event_log" is empty, then no messages have been scanned
     if len(event_log) == 0:
