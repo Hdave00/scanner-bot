@@ -547,11 +547,10 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
 
     # Step 3: Bucket users who have < 4 responses
     low_responders = defaultdict(list)
-    for user_id in valid_ids:
-        count = response_count.get(user_id, 0)
-        if count < 4:
-            member = id_to_member[user_id]
-            low_responders[count].append(member)
+    # After collecting response_count
+    for uid, count in sorted(response_count.items(), key=lambda x: -x[1]):
+        member = guild.get_member(uid)
+        print(f"{member and member.display_name or uid}: {count}")
 
     # Step 4: Format the output
     lines = [f"**Low Attendance Summary (Last {limit} Events)**", "_Shows only users with fewer than 4 total responses (✅ or ❌)_\n"]
