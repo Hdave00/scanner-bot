@@ -489,7 +489,9 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
     await interaction.response.defer(thinking=True)
 
     scanned, logged = await scan_apollo_events(limit)
-    await interaction.followup.send(f"Scanned {scanned} Apollo events, logged {logged} attendees (limit: {limit}).")
+    await interaction.followup.send(
+    f"Scanned {scanned} messages, found {len(event_log)} Apollo events, logged {logged} attendees (target: {limit} events)."
+)
 
 
 """
