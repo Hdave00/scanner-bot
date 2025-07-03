@@ -217,6 +217,26 @@ async def recent_authors(interaction: discord.Interaction, limit: int = 20):
     )
 
 
+@bot.tree.command(name="clear_cache", description="Clears all cached event attendance data scanned from Apollo to re-run data sensitive commands.")
+async def clear_cache(interaction: discord.Interaction):
+
+    """ Clears the bots logs and cache to re run data sensitive commands """
+
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
+        return
+
+    # Clear global logs defined globally
+    event_log.clear()
+
+    # clear attention log as well
+    if 'attendance_log' in globals():
+        attendance_log.clear()
+
+    await interaction.response.send_message("Apollo scan cache cleared successfully.", ephemeral=True)
+
+
 @bot.tree.command(name="hilf", description="Show all available commands and their usage.")
 async def hilf(interaction: discord.Interaction):
 
