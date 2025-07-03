@@ -95,6 +95,92 @@ def normalize_name(name: str) -> str:
     return name.strip()
 
 
+async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
+    """
+    Scans the channel history to collect exactly `limit` Apollo events.
+    Returns a tuple: (messages_scanned, attendees_logged)
+    """
+
+    scanned_messages = 0
+    logged = 0
+    max_to_scan = 1000  # upper bound to avoid infinite loops
+
+    event_log.clear()
+    if 'attendance_log' in globals():
+        attendance_log.clear()
+
+    target_channel = bot.get_channel(int(CHANNEL_ID))
+    if not target_channel:
+        return (0, 0)
+
+    apollo_events_collected = 0
+
+    async for msg in target_channel.history(limit=max_to_scan):
+        scanned_messages += 1
+
+        # Only count Apollo bot messages
+        if "Apollo" not in msg.author.name:
+            continue
+
+        apollo_events_collected += 1
+
+        attendees, declined = [], []
+
+        for embed in msg.embeds:
+
+            # Accepted
+            for field in embed.fields:
+                if "accepted" in field.name.lower():
+                    for line in field.value.split("\n"):
+                        name = line.strip("- ").strip()
+                        if name:
+                            attendees.append(name)
+
+                # Declined or ❌
+                if "declined" in field.name.lower() or "x" in field.name.lower():
+                    for line in field.value.split("\n"):
+                        name = line.strip("- ").strip()
+                        if name:
+                            declined.append(name)
+
+            # Fallback: attendees in description
+            if embed.description:
+                for line in embed.description.split("\n"):
+                    if line.strip().startswith("-"):
+                        name = line.strip("- ").strip()
+                        if name:
+                            attendees.append(name)
+
+        # Normalize names
+        normalized_attendees = [(normalize_name(name), name) for name in attendees]
+        normalized_declined = [(normalize_name(name), name) for name in declined]
+
+        # Log the event
+        event_log.append({
+            "event_id": msg.id,
+            "accepted": normalized_attendees,
+            "declined": normalized_declined
+        })
+
+        for user_id, pretty in normalized_attendees:
+            pseudo_id = f"{msg.id}-{user_id}"
+            if not already_logged(pseudo_id):
+                log_attendance(user_id, pretty, msg.id)
+                logged += 1
+
+        for user_id, pretty in normalized_declined:
+            pseudo_id = f"{msg.id}-{user_id}-declined"
+            if not already_logged(pseudo_id):
+                log_attendance(user_id, pretty, msg.id, response="declined")
+                logged += 1
+
+        # Stop early if we've collected enough Apollo events
+        if apollo_events_collected >= limit:
+            break
+
+    return (scanned_messages, logged)
+
+
 def log_attendance(user_id, username, event_id, response="accepted"):
 
     normalized_id = normalize_name(user_id)
@@ -391,6 +477,22 @@ async def debug_duplicates(interaction: discord.Interaction):
             await interaction.followup.send(message)
 
 
+@bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
+@app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
+async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
+    
+    required_role = discord.utils.get(interaction.user.roles, name="NCO")
+    if required_role is None:
+        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    scanned, logged = await scan_apollo_events(limit)
+    await interaction.followup.send(f"Scanned {scanned} Apollo events, logged {logged} attendees (limit: {limit}).")
+
+
+"""
 # command to gather Apollo data, cause its fucking CLOSED SOURCE!!
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
@@ -437,7 +539,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
         # a rich content "embed" attached to a Discord message. 
         # Discord allows bots and users to send rich messages containing fields, colors, thumbnails, and descriptions
 
-        """ 
+         
         A typical Apollo embed could be like:
                 embed.title: "Training Operation - June 17"
 
@@ -448,7 +550,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
                 Field 1: Name = "Accepted ✅", Value = "- PFC Jane\n- LCpl Bob"
 
                 Field 2: Name = "Declined ❌", Value = "- Pvt Ray" 
-        """
+        
 
         # then for each embed in the the message embeds, set a list of what embed we want to keep track of ie: here we keep track of attendees and declined
         # but that goes for literally anything else, using any other of apollo's function, thats why the "/show_apollo_embeds" function exists
@@ -520,7 +622,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
     await interaction.followup.send(
         f"Scanned {scanned} Apollo events, logged {logged} attendees (limit: {limit})."
     )
-
+"""
 
 @bot.tree.command(name="check_member", description="Show attendance data about a single member.")
 @app_commands.describe(user="The member to check", limit="Limit of how many events to check for. (default 8, max 24)")
@@ -579,12 +681,10 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
 
 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
-@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (min: 8, max: 24)")
-async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 8, 24] = 8):
-
-    """ Command that generates a summary of all users excluding inactive/reserve members or guest members.
-            - Shows data like attendance percentage, which active members reacted the least, most, never, always etc.
-    """
+@app_commands.describe(limit="How many Apollo events to summarize (min: 8, max: 24)")
+async def summary(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
+    
+    """Summarizes user attendance for the last N Apollo events."""
 
     await interaction.response.defer(thinking=True)
 
@@ -593,14 +693,20 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
         await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
+    # Collect exactly N Apollo events (not just messages)
+    scanned_messages, logged = await scan_apollo_events(limit)
+
     if len(event_log) < limit:
-        await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
+        await interaction.followup.send(
+            f"Only {len(event_log)} Apollo events found (scanned {scanned_messages} messages).\n"
+            f"Need at least {limit} events for a full summary.",
+            ephemeral=True
+        )
         return
 
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserves"}
 
-    # First Get all valid server members (not bots, not reserves/guests)
     valid_members = [
         m for m in guild.members
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
@@ -608,7 +714,6 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
     valid_ids = {m.id for m in valid_members}
     id_to_member = {m.id: m for m in valid_members}
 
-    # Count responses (accepted + declined) per user in the last N events
     recent_events = event_log[-limit:]
     response_count = defaultdict(int)
 
@@ -618,36 +723,40 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
                 if user_id in valid_ids:
                     response_count[user_id] += 1
 
-    # Bucket users who responded less than 4 times (i.e., 0–3)
     low_responders = defaultdict(list)
 
     for user_id in valid_ids:
-        count = response_count.get(user_id, 0)  # 0 if no response at all
+        count = response_count.get(user_id, 0)
         if count < 4:
             member = id_to_member.get(user_id)
             if member:
                 low_responders[count].append(member)
 
-    # Format the output to look rpetty
-    lines = [f"**Low Attendance Summary (Last {limit} Events)**", "_Shows only users with fewer than 4 total responses (✅ or ❌)_\n"]
+    lines = [f"**Low Attendance Summary (Last {limit} Apollo Events)**", "_Showing users with fewer than 4 responses (✅ or ❌)_\n"]
 
     if not low_responders:
         lines.append("All active members responded to 4 or more events!")
     else:
-        for i in range(0, 4):  # Only 0 to 3 responders
+        for i in range(0, 4):
             group = low_responders.get(i, [])
             if group:
                 lines.append(f"\n**Members with {i}/{limit} Responses:**")
                 for member in sorted(group, key=lambda m: m.display_name.lower()):
                     lines.append(f"- **{member.display_name}** ✅❌ | No Response: {limit - i}")
 
-    # Send output
+    lines.append(f"\n_Scanned {scanned_messages} messages to find {limit} Apollo events. Logged {logged} participant responses._")
+
     message = "\n".join(lines)
     if len(message) > 1900:
         for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
             await interaction.followup.send(chunk)
     else:
         await interaction.followup.send(message)
+
+    # Clear cache after generating summary
+    event_log.clear()
+    if 'attendance_log' in globals():
+        attendance_log.clear()
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
