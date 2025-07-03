@@ -637,18 +637,12 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
     await interaction.response.defer(thinking=True)
 
-    # Scan messages first (we try to get at least `limit` Apollo events)
-    scanned, logged = await scan_apollo_events(100)
-
+    # add check to make sure we are above the min limit
     if len(event_log) < limit:
-        await interaction.followup.send(
-            f"Only {len(event_log)} Apollo events found (out of {scanned} messages). "
-            f"Need at least {limit} for a proper check.",
-            ephemeral=True
-        )
+        await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
         return
 
-    # Normalize the user display name
+    # normalize the user name like scan_apollo does
     normalized_target = normalize_name(user.display_name)
 
     recent_events = event_log[-limit:]
@@ -668,10 +662,9 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
     msg = (
         f"**Attendance for {user.display_name}** (Last {limit} Events)\n"
-        f"✅ Accepted: **{accepted}**\n"
-        f"❌ Declined: **{declined}**\n"
-        f"No Response: **{no_response}**\n"
-        f"\n_Scanned {scanned} messages, found {len(event_log)} Apollo events, logged {logged} participants._"
+        f"Accepted: **{accepted}** ✅\n"
+        f"Declined: **{declined}** ❌\n"
+        f"No Response: **{no_response}**"
     )
 
     await interaction.followup.send(msg)
@@ -690,7 +683,7 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
 @app_commands.describe(limit="How many Apollo events to summarize (min: 8, max: 24)")
 async def summary(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
-
+    
     """Summarizes user attendance for the last N Apollo events."""
 
     await interaction.response.defer(thinking=True)
