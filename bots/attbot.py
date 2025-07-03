@@ -559,8 +559,8 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
 
 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
-@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 8, max is 24)")
-async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 8):
+@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (min: 8, max: 24)")
+async def summary(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 8, 24] = 8):
 
     """ Command that generates a summary of all users excluding inactive/reserve members or guest members.
             - Shows data like attendance percentage, which active members reacted the least, most, never, always etc.
@@ -580,7 +580,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserves"}
 
-    # Step 1: Get all valid server members (not bots, not reserves/guests)
+    # First Get all valid server members (not bots, not reserves/guests)
     valid_members = [
         m for m in guild.members
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
@@ -588,7 +588,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
     valid_ids = {m.id for m in valid_members}
     id_to_member = {m.id: m for m in valid_members}
 
-    # Step 2: Tally how many times each user_id appears in accepted/declined in last N events
+    # Count responses (accepted + declined) per user in the last N events
     recent_events = event_log[-limit:]
     response_count = defaultdict(int)
 
@@ -598,14 +598,17 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
                 if user_id in valid_ids:
                     response_count[user_id] += 1
 
-    # Step 3: Bucket users who have < 4 responses
+    # Bucket users who responded less than 4 times (i.e., 0–3)
     low_responders = defaultdict(list)
-    # After collecting response_count
-    for uid, count in sorted(response_count.items(), key=lambda x: -x[1]):
-        member = guild.get_member(uid)
-        print(f"{member and member.display_name or uid}: {count}")
 
-    # Step 4: Format the output
+    for user_id in valid_ids:
+        count = response_count.get(user_id, 0)  # 0 if no response at all
+        if count < 4:
+            member = id_to_member.get(user_id)
+            if member:
+                low_responders[count].append(member)
+
+    # Format the output to look rpetty
     lines = [f"**Low Attendance Summary (Last {limit} Events)**", "_Shows only users with fewer than 4 total responses (✅ or ❌)_\n"]
 
     if not low_responders:
@@ -618,7 +621,7 @@ async def summary(interaction: discord.Interaction, channel: TextChannel, limit:
                 for member in sorted(group, key=lambda m: m.display_name.lower()):
                     lines.append(f"- **{member.display_name}** ✅❌ | No Response: {limit - i}")
 
-    # Step 5: Send output
+    # Send output
     message = "\n".join(lines)
     if len(message) > 1900:
         for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
