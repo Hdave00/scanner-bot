@@ -325,44 +325,87 @@ async def clear_cache(interaction: discord.Interaction):
 
 @bot.tree.command(name="hilf", description="Show all available commands and their usage.")
 async def hilf(interaction: discord.Interaction):
-
     await interaction.response.defer()  # defer in case it takes a moment
 
-    help_text = """
-        **Attendance Bot Commands:**
+    embed = discord.Embed(
+        title="Attendance Bot Commands",
+        description="This bot tracks Apollo event reactions to summarize user participation. More commands to be added.",
+        color=discord.Color.blue()
+    )
 
-        `/scan_apollo` -> Scans recent Apollo messages and logs users who reacted with ✅ or :accepted: and who reacted with ❌ or :declined:.
+    embed.add_field(
+        name="/scan_apollo",
+        value="Scans recent Apollo messages and logs users who reacted with ✅ or :accepted: and who reacted with ❌ or :declined:.",
+        inline=False
+    )
 
-        `/leaderboard` -> Shows this month's attendance leaderboard, based on unique events attended.
+    embed.add_field(
+        name="/leaderboard",
+        value="Shows this month's attendance leaderboard, based on unique events attended.",
+        inline=False
+    )
 
-        `/show_apollo_embeds` -> Prints the descriptions of recent Apollo embeds for "debugging". This is the actual command that exposes the embeds and
-                                other formats of the Apollo bot to "reverse engineer" whatever the bot embeds in order to make your own version thereof.
+    embed.add_field(
+        name="/show_apollo_embeds",
+        value="Prints the descriptions of recent Apollo embeds for \"debugging\". This is the actual command that exposes the embeds and other formats of the Apollo bot to \"reverse engineer\" whatever the bot embeds in order to make your own version thereof.",
+        inline=False
+    )
 
-        `/recent_authors` -> Lists authors of the last 'n' messages in the channel. Mainly used for debugging or simply finding out who has made messages.
-                            This command is used to figure out if it was apollo bot, or another bot/author that made the message/post.
+    embed.add_field(
+        name="/recent_authors",
+        value="Lists authors of the last 'n' messages in the channel. Mainly used for debugging or simply finding out who has made messages. This command is used to figure out if it was apollo bot, or another bot/author that made the message/post.",
+        inline=False
+    )
 
-        `/scan_all_reactions` -> Mainly used for analysing the reactions to messages, includes all reaction types and which member reacted with what.
+    embed.add_field(
+        name="/scan_all_reactions",
+        value="Mainly used for analysing the reactions to messages, includes all reaction types and which member reacted with what.",
+        inline=False
+    )
 
-        `/debug_duplicates` -> If you get duplicate reactions, you check how many and which of those were duplicate and why, since this will be a common
-                                issue, especially for escape sequences and non standard usernames.
+    embed.add_field(
+        name="/debug_duplicates",
+        value="If you get duplicate reactions, you check how many and which of those were duplicate and why, since this will be a common issue, especially for escape sequences and non standard usernames.",
+        inline=False
+    )
 
-        `/staff_meeting_notes` -> Paste staff meeting notes markdown text template.
+    embed.add_field(
+        name="/staff_meeting_notes",
+        value="Paste staff meeting notes markdown text template.",
+        inline=False
+    )
 
-        `/summary` -> Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.
+    embed.add_field(
+        name="/summary",
+        value="Shows an attendance summary comparing reactions vs non-reactions to determine activity of members.",
+        inline=False
+    )
 
-        `/check_member` -> Shows activity summary about a selected member for upto 3 past months (24 events, 3 * 8 bot posts).
+    embed.add_field(
+        name="/check_member",
+        value="Shows activity summary about a selected member for upto 3 past months (24 events, 3 * 8 bot posts).",
+        inline=False
+    )
 
-        `/flip` -> Flip a coin n number of times. Default 1.
+    embed.add_field(
+        name="/flip",
+        value="Flip a coin n number of times. Default 1.",
+        inline=False
+    )
 
-        `/rand` -> Generate a random number between 0 and 1,000,000 (max n numbers 100).
+    embed.add_field(
+        name="/rand",
+        value="Generate a random number between 0 and 1,000,000 (max n numbers 100).",
+        inline=False
+    )
 
-        `/clear_cache` -> Clears all cache to re-run and avoid duplicate data collection for data sensitive commands like "scan_apollo".
+    embed.add_field(
+        name="/clear_cache",
+        value="Clears all cache to re-run and avoid duplicate data collection for data sensitive commands like \"scan_apollo\".",
+        inline=False
+    )
 
-        > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
-        """
-    chunks = [help_text[i:i+1999] for i in range(0, len(help_text), 1999)]
-    for chunk in chunks:
-        await interaction.followup.send(chunk)
+    await interaction.followup.send(embed=embed)
 
 
 @bot.tree.command(name="staff_meeting_notes", description="Paste staff meeting note template.")
