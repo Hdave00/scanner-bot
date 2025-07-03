@@ -354,7 +354,9 @@ async def hilf(interaction: discord.Interaction):
 
         `/flip` -> Flip a coin n number of times. Default 1.
 
-        `/rand` -> Generate a random number between 0 and 1,000,000 (max n numbers 100)
+        `/rand` -> Generate a random number between 0 and 1,000,000 (max n numbers 100).
+
+        `/clear_cache` -> Clears all cache to re-run and avoid duplicate data collection for data sensitive commands like "scan_apollo".
 
         > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
         """
