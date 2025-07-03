@@ -360,7 +360,9 @@ async def hilf(interaction: discord.Interaction):
 
         > This bot tracks Apollo event reactions to summarize user participation. More commands to be added.
         """
-    await interaction.followup.send(help_text)
+    chunks = [help_text[i:i+1999] for i in range(0, len(help_text), 1999)]
+    for chunk in chunks:
+        await interaction.followup.send(chunk)
 
 
 @bot.tree.command(name="staff_meeting_notes", description="Paste staff meeting note template.")
