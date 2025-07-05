@@ -763,14 +763,19 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
     valid_ids = {m.id for m in valid_members}
     id_to_member = {m.id: m for m in valid_members}
 
-    recent_events = event_log[-limit:]
+    # Build a mapping: normalized display name -> member
+    name_map = {normalize_name(m.display_name): m for m in valid_members}
+
+    # Tally responses per user ID using normalized names
     response_count = defaultdict(int)
+    recent_events = event_log[-limit:]
 
     for event in recent_events:
         for category in ("accepted", "declined"):
-            for user_id, _ in event.get(category, []):
-                if user_id in valid_ids:
-                    response_count[user_id] += 1
+            for norm_name, _ in event.get(category, []):
+                member = name_map.get(norm_name)
+                if member:
+                    response_count[member.id] += 1
 
     low_responders = defaultdict(list)
 
