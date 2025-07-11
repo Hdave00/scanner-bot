@@ -54,8 +54,8 @@ There are **two versions** of the bot:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/bot-scanner.git
-cd bot-scanner
+git clone https://github.com/yourusername/scanner-bot.git
+cd scanner-bot
 ```
 
 ### 2. Install dependencies
