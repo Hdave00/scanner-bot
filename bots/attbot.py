@@ -261,6 +261,12 @@ async def dump_attendance(ctx):
 @app_commands.describe(limit="Number of messages to scan (default 50)")
 async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
 
+    """ 
+    This command allows you to do the first 'reverse engineering' part ie, shows ALL aspects of an apollo embed for an event or anything else,
+        that the bot has 'posted' in any channel. 
+        - Can be adapted for any bot or embed, just change this `if "Apollo" in msg.author.name:` bit, from 'Apollo' to whichever user or bot you want.
+    """
+
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
@@ -285,6 +291,8 @@ async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
 @bot.tree.command(name="recent_authors", description="Show recent authors from the channel.")
 @app_commands.describe(limit="Number of messages to scan (default 20)")
 async def recent_authors(interaction: discord.Interaction, limit: int = 20):
+
+    """ Command that lets you scan the members/users who have made message/post in the desired channel, and show you who they are."""
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
@@ -325,6 +333,9 @@ async def clear_cache(interaction: discord.Interaction):
 
 @bot.tree.command(name="hilf", description="Show all available commands and their usage.")
 async def hilf(interaction: discord.Interaction):
+
+    """ Help command to see all available commands, as embeds to stay within message limits. """
+
     await interaction.response.defer()  # defer in case it takes a moment
 
     embed = discord.Embed(
@@ -412,7 +423,7 @@ async def hilf(interaction: discord.Interaction):
 async def staff_meeting_notes(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
 
-    
+    """ Command takes a markdown file and generates it in the desired/mentioned discord channel. Directly invoked in dockerfile."""
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
