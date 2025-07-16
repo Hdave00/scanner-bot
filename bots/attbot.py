@@ -89,7 +89,7 @@ def already_logged(pseudo_id):
 
 def normalize_name(name: str) -> str:
     """ Using regex, we normalise scanned names to pass into other functions. """
-    
+
     name = name.lower()
     name = re.sub(r"[^\w\s]", "", name)  # remove punctuation
     name = re.sub(r"\s+", " ", name)     # normalize whitespace
@@ -185,9 +185,11 @@ async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
 
 def log_attendance(user_id, username, event_id, response="accepted"):
 
-    """ Logs all users who have accepted. Ie, this function allows you to target any specific embed string and capture that response as a formatted
+    """
+    Logs all users who have accepted. Ie, this function allows you to target any specific embed string and capture that response as a formatted
         data structure.
-        - Also useful for logging users/reactions without filtering in nested functions, by targeting specific embed parameters of a reactable button."""
+        - Also useful for logging users/reactions without filtering in nested functions, by targeting specific embed parameters of a reactable button.
+    """
 
     normalized_id = normalize_name(user_id)
     pseudo_id = f"{event_id}-{normalized_id}" if response == "accepted" else f"{event_id}-{normalized_id}-declined"
