@@ -412,6 +412,8 @@ async def hilf(interaction: discord.Interaction):
 async def staff_meeting_notes(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)  # defer in case it takes a moment
 
+    
+
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
@@ -555,8 +557,11 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 )
 
 
+# -----  NOTE  ----- 
+    # This has been "commented out" as it is legacy now (v1.0) This command didnt call the 'scan_apollo_events' function but instead,
+    # did everything in one bot command. I mainly did it for prototyping the "reverse engineering" bit and its kinda useful if you want to have
+    # a lightweight embed extraction function built directly into a bot command, and not use it anywhere else
 """
-# command to gather Apollo data, cause its CLOSED SOURCE!!
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
 async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
@@ -942,6 +947,13 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 # whether we're deferring the response.
 @bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined for the last 8 events")
 async def leaderboard(interaction: discord.Interaction):
+
+    """ 
+    Command reads from the global event_log list and attendance_log dict to rank and summarize user attendance based on cached data,
+        from using the scan_apollo command.
+        - There is no persistent save implementation in attbot.py as I had no need for it, for that you might want to look at botscanner.py.
+        - Functionality of this command can be adapted for any other rank based uses, just read the comments and you'll get an idea.
+    """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
