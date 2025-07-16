@@ -536,6 +536,11 @@ async def debug_duplicates(interaction: discord.Interaction):
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
 async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
+
+    """ 
+    The bot command that calls the 'scan_apollo_events' function to scan apollo-bot embeds and output the reactions and/or
+        reactions thereto.
+    """
     
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
