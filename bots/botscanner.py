@@ -168,7 +168,7 @@ async def debug_apollo(ctx):
                     )
 
 
-# command to gather Apollo data, cause its fucking CLOSED SOURCE!!
+# command to gather Apollo data, cause its CLOSED SOURCE!!
 @bot.command()
 async def scan_apollo(ctx):
     scanned = 0

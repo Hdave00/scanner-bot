@@ -436,9 +436,12 @@ async def staff_meeting_notes(interaction: discord.Interaction):
     except Exception as e:
         await interaction.followup.send(f"Error: An unexpected error occurred: {str(e)}")
 
+
 @bot.tree.command(name="debug_apollo", description="Scan recent messages for Apollo embeds and show raw fields for debugging.")
 @app_commands.describe(limit="How many recent messages to scan (default 50)")
 async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
+
+    """ Debugging function that shows any Apollo message and embed if found. """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
@@ -542,7 +545,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
 
 
 """
-# command to gather Apollo data, cause its fucking CLOSED SOURCE!!
+# command to gather Apollo data, cause its CLOSED SOURCE!!
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
 async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
