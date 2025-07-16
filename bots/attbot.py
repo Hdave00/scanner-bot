@@ -495,6 +495,12 @@ async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
 @bot.tree.command(name="debug_duplicates", description="Check for inconsistent (duplicate-looking) usernames in attendance log.")
 async def debug_duplicates(interaction: discord.Interaction):
 
+    """ 
+    Checks global dict 'attendance_log' by readding them into a tmep dict 'seen' to prevent users being accounted for 2x.
+        - This is due to the messy nature of the function and how it interacts with the 'normalize_name' function.
+        - The normalized names are passed to the temp list (by called the normalized_name function) and outputs a message in discord accordingly.
+    """
+
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
@@ -510,7 +516,7 @@ async def debug_duplicates(interaction: discord.Interaction):
     duplicates = {k: v for k, v in seen.items() if len(v) > 1}
 
     # Defer in case it takes time
-    await interaction.response.defer()
+    await interaction.response.defer(thingking=True)
 
     if not duplicates:
         await interaction.followup.send("No username inconsistencies found.")
