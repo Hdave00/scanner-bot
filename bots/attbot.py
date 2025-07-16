@@ -253,6 +253,9 @@ async def on_raw_reaction_add(payload):
 # debug attendance log
 @bot.command()
 async def dump_attendance(ctx):
+
+    """ Command dumps the cached global dictionary contents. """
+
     await ctx.send(f"Current entries: {len(attendance_log)}")
 
 
