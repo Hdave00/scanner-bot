@@ -1079,6 +1079,18 @@ async def leaderboard(interaction: discord.Interaction):
         for winner in astro_award_winners:
             lines.append(f"🏅 {winner} - Attended all {total_events} events!")
 
+    # Same for good conduct award - members who reacted to all events (accepted or declined)
+    reacted_all_events = [
+        pretty_names[user_id]
+        for user_id in unique_users
+        if accepted_count[user_id] + declined_count[user_id] == total_events
+    ]
+
+    if reacted_all_events:
+        lines.append("\n**All Reacted Award**")
+        for member in reacted_all_events:
+            lines.append(f"🏅 {member} - Reacted to all {total_events} events!")
+
     # if message exceeds character limit then send the next chunk in a new line/message
     message = "\n".join(lines)
 
