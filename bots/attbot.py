@@ -19,9 +19,14 @@ import logging
 
 
 __version__ = "1.0.1"
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.info("Starting scanner-bot... {__version__}...")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+logging.info(f"Starting scanner-bot... v{__version__}")
 
 
 load_dotenv()
@@ -105,18 +110,23 @@ def normalize_name(name: str) -> str:
 
 @bot.event
 async def on_ready():
+    """Event syncing function to sync all available commands to deployment environment."""
 
-    """ Event syncing function to sync all available commands to deployment environment. """
+    # Info: Bot successfully connected
+    logging.info(f"Bot connected as {bot.user}")
 
-    print(f"Bot is connected as {bot.user}")
-    print(f"Logged in as {bot.user}")
+    # Debug: Detailed user info (useful for troubleshooting)
+    logging.debug(f"Logged in as {bot.user}")
 
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s).")
+
+        # check info if commands synced
+        logging.info(f"Synced {len(synced)} command(s) successfully")
 
     except Exception as e:
-        print(f"Error syncing commands: {e}")
+        # check for syncing fail
+        logging.error(f"Error syncing commands: {e}")
 
 
 
