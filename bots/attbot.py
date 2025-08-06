@@ -573,6 +573,7 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
         await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
+
     await interaction.response.defer(thinking=True)
 
     scanned, logged = await scan_apollo_events(limit)
