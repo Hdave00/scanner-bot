@@ -15,6 +15,13 @@ from collections import defaultdict
 import re
 import random
 import secrets
+import logging 
+
+
+__version__ = "1.0.1"
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.info("Starting scanner-bot... {__version__}...")
+
 
 
 load_dotenv()
@@ -94,6 +101,24 @@ def normalize_name(name: str) -> str:
     name = re.sub(r"[^\w\s]", "", name)  # remove punctuation
     name = re.sub(r"\s+", " ", name)     # normalize whitespace
     return name.strip()
+
+
+@bot.event
+async def on_ready():
+
+    """ Event syncing function to sync all available commands to deployment environment. """
+
+    print(f"Bot is connected as {bot.user}")
+    print(f"Logged in as {bot.user}")
+
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s).")
+
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
+
+
 
 
 async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
@@ -206,20 +231,7 @@ def log_attendance(user_id, username, event_id, response="accepted"):
             "response": response
         }
 
-@bot.event
-async def on_ready():
 
-    """ Event syncing function to sync all available commands to deployment environment. """
-
-    print(f"Bot is connected as {bot.user}")
-    print(f"Logged in as {bot.user}")
-
-    try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s).")
-
-    except Exception as e:
-        print(f"Error syncing commands: {e}")
 
 """
 --- NOTE --- 
