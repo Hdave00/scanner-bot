@@ -795,6 +795,32 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
     await interaction.response.send_message(f"**{result}**")
 
 
+@bot.tree.command(name="coin", description="Flip a coin 'n' times.")
+@app_commands.describe(limit="How many flips to do (default is 1)")
+async def coin(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 1):
+
+    """  Command to flip a coin 'n' times. """
+
+    outcomes = [random.choice(["Heads", "Tails"]) for _ in range(limit)]
+
+    if limit == 1:
+        response = f"You flipped: **{outcomes[0]}**"
+
+    else:
+        heads = outcomes.count("Heads")
+        tails = outcomes.count("Tails")
+
+        response = (
+
+            f"you flipped the coin {limit} times:\n"
+            f"**Heads:** {heads}\n"
+            f"**Tails:** {tails}"
+
+        )
+    
+    await interaction.response.send_message(response)
+
+
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
 @app_commands.describe(limit="How many Apollo events to summarize (min: 8, max: 24)")
 async def summary(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
