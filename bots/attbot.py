@@ -1136,7 +1136,7 @@ async def leaderboard(interaction: discord.Interaction):
     ]
 
     if reacted_all_events:
-        lines.append("\n**All Reacted Award**")
+        lines.append("\n**Good Conduct Award**")
         for member in reacted_all_events:
             lines.append(f"🏅 {member} - Reacted to all {total_events} events!")
 
