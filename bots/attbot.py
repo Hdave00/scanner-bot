@@ -20,7 +20,9 @@ import asyncio
 from datetime import datetime, timedelta
 import sqlite3
 
-__version__ = "1.0.1"
+from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
+
+__version__ = "1.2"
 
 # Configure logging
 logging.basicConfig(
@@ -120,6 +122,14 @@ async def on_ready():
     # Debug: Detailed user info (useful for troubleshooting)
     logging.debug(f"Logged in as {bot.user}")
 
+    # call the init function to get the db
+    init_db()
+
+    # check for each reminder in the database and everytime the bot is used, reload reminders from the db and schedule/order then
+    for reminder in get_reminders():
+        reminder_id, user_id, channel_id, message, remind_time, dm = reminder
+        asyncio.create_task(reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm))
+
     try:
         synced = await bot.tree.sync()
 
@@ -129,6 +139,29 @@ async def on_ready():
     except Exception as e:
         # check for syncing fail
         logging.error(f"Error syncing commands: {e}")
+
+
+
+async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm):
+    """ function gets reminder task in iso format and check if there is a dm to be sent to the user to confirm or create a message """
+
+    now = datetime.now(datetime.timezone.utc)
+    remind_time = datetime.fromisoformat(remind_time)
+    delay = (remind_time - now).total_seconds()
+
+    # sleep if any delay 
+    if delay > 0:
+        await asyncio.sleep(delay)
+
+    # get user who made the command and show them a message
+    user = await bot.fetch_user(user_id)
+    if dm:
+        await user.send(f"Reminder: {message}")
+    else:
+        channel = bot.get_channel(channel_id)
+        await channel.send(f"{user.mention} Reminder: {message}")
+
+    delete_reminder(reminder_id)
 
 
 
@@ -291,6 +324,64 @@ async def dump_attendance(ctx):
     """ Command dumps the cached global dictionary contents. """
 
     await ctx.send(f"Current entries: {len(attendance_log)}")
+
+
+
+@bot.tree.command(name="remindme", description="Set a reminder (once per day).")
+@app_commands.describe(message="Reminder message", date="Date (YYYY-MM-DD HH:MM, UTC)", dm="Send as DM?")
+async def remindme(interaction: discord.Interaction, message: str, date: str, dm: bool = False):
+    """ Bot command to create, delete or check active reminders """
+
+    # try to get the reminder time, ensure that the user uses correct format
+    try:
+        remind_time = datetime.strptime(date, "%Y-%m-%d %H:%M")
+    except ValueError:
+        await interaction.response.send_message("Invalid date format. Use `YYYY-MM-DD HH:MM` in UTC.", ephemeral=True)
+        return
+
+    # Enforce once per day per user, handle the limit error gracefully and if they have a reminder already, send an "ephemeral" notification to them.
+    existing = [r for r in get_reminders() if r[1] == interaction.user.id]
+
+    if existing:
+        await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
+        return
+
+    add_reminder(interaction.user.id, interaction.channel.id, message, remind_time.isoformat(), dm)
+
+    # grab the last inserted reminder id
+    reminder_id = get_reminders()[-1][0]
+
+    asyncio.create_task(reminder_task(reminder_id, interaction.user.id, interaction.channel.id, message, remind_time.isoformat(), dm))
+
+    await interaction.response.send_message(f"✅ Reminder set for {remind_time.strftime('%Y-%m-%d %H:%M UTC')}", ephemeral=True)
+
+
+# TODO maybe not just delete the whole task directly from db, but read asyncio's docs to remove/delete the reminder itself. Probably will save a bit
+# of memory too
+@bot.tree.command(name="myreminders", description="List or cancel your reminders.")
+@app_commands.describe(cancel_id="ID of reminder to cancel")
+async def myreminders(interaction: discord.Interaction, cancel_id: int = None):
+    """ command to list the user's reminders and cancel them before they go off, to make a new one """
+
+    # Cancel a reminder, if the cancel id we set matches the id that we saved in the delete_reminder function in utils.py
+    if cancel_id:
+        delete_reminder(cancel_id)
+        await interaction.response.send_message(f"Reminder {cancel_id} canceled.", ephemeral=True)
+        return
+
+    # Otherwise list all reminders
+    reminders = get_user_reminders(interaction.user.id)
+    if not reminders:
+        await interaction.response.send_message("You have no active reminders.", ephemeral=True)
+        return
+
+    # the reminder list will be a new line with its details
+    reminder_list = "\n".join([f"**ID {r[0]}** | {r[1]} | at `{r[2]}` | {'DM' if r[3] else 'Channel'}" for r in reminders])
+
+    await interaction.response.send_message(
+        f"Your reminders:\n{reminder_list}\n\n"
+        f"Use `/myreminders cancel_id:<id>` to cancel one.",
+        ephemeral=True)
 
 
 
