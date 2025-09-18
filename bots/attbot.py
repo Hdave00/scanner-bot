@@ -130,7 +130,6 @@ async def on_ready():
 
 
 
-
 async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
 
     """
@@ -282,6 +281,7 @@ async def on_raw_reaction_add(payload):
 # TODO: Command that shows attendance for each member, filterable by member, rank, and timeframe
 
 
+
 # debug attendance log
 @bot.command()
 async def dump_attendance(ctx):
@@ -289,6 +289,7 @@ async def dump_attendance(ctx):
     """ Command dumps the cached global dictionary contents. """
 
     await ctx.send(f"Current entries: {len(attendance_log)}")
+
 
 
 # This will print embed descriptions so we can see exactly what text is there (for reverse engineering websocket requests of other bots)
@@ -344,6 +345,7 @@ async def recent_authors(interaction: discord.Interaction, limit: int = 20):
     await interaction.response.send_message(
         f"Recent authors from last {limit} messages:\n{result}"
     )
+
 
 
 @bot.tree.command(name="clear_cache", description="Clears all cached event attendance data scanned from Apollo to re-run data sensitive commands.")
