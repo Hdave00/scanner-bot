@@ -860,13 +860,15 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
     accepted = 0
     declined = 0
 
+    # switching from lists to sets to avoid double counting
     for event in recent_events:
-        accepted_names = [uid for uid, _ in event.get("accepted", [])]
-        declined_names = [uid for uid, _ in event.get("declined", [])]
+        accepted_names = {uid for uid, _ in event.get("accepted", [])}
+        declined_names = {uid for uid, _ in event.get("declined", [])}
 
+        # removed elif conditional to ensure Apollos embeds lists a member in both accepted and declined, and we see it instead of silently ignoring it
         if normalized_target in accepted_names:
             accepted += 1
-        elif normalized_target in declined_names:
+        if normalized_target in declined_names:
             declined += 1
 
     no_response = limit - (accepted + declined)
