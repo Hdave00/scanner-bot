@@ -33,7 +33,7 @@ def init_db(db_path=DB_PATH):
 
     Path(db_path).touch(exist_ok=True)
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reminders (
@@ -51,11 +51,11 @@ def init_db(db_path=DB_PATH):
 
 
 
-def get_user_reminders(user_id: int):
+def get_user_reminders(user_id: int, db_path=DB_PATH):
     """ Give user the option to cancel a reminder if they put one accidentally or made a mistake. """
 
     # create a connection to dbase, select all reminders of the user who made the command NOTE this funtion is tied to the "myreminder" command in attbot.py
-    conn = sqlite3.connect("reminders.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute(""" SELECT id, message, remind_time, dm FROM reminders WHERE user_id = ? """, (user_id,))
 
@@ -67,8 +67,8 @@ def get_user_reminders(user_id: int):
 
 # Command for adding a reminder, takes input of user it, channel id, the message to save as a string, time to be reminded as, as a string as well and the
 # dm to send to the user 
-def add_reminder(user_id: int, channel_id: int, message: str, remind_time: str, dm: bool):
-    conn = sqlite3.connect("reminders.db")
+def add_reminder(user_id: int, channel_id: int, message: str, remind_time: str, dm: bool, db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("""INSERT INTO reminders (user_id, channel_id, message, remind_time, dm) VALUES (?, ?, ?, ?, ?)"""
                    ,(user_id, channel_id, message, remind_time, int(dm)))
@@ -80,8 +80,8 @@ def add_reminder(user_id: int, channel_id: int, message: str, remind_time: str, 
 
 
 # function to get reminders for the user, to see what and how many reminders they have
-def get_reminders():
-    conn = sqlite3.connect("reminders.db")
+def get_reminders(db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT id, user_id, channel_id, message, remind_time, dm FROM reminders")
     rows = cursor.fetchall()
@@ -91,8 +91,8 @@ def get_reminders():
 
 
 # functionality delete a reminder if a user wishes to
-def delete_reminder(reminder_id: int):
-    conn = sqlite3.connect("reminders.db")
+def delete_reminder(reminder_id: int, db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
     conn.commit()
