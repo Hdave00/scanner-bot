@@ -5,20 +5,22 @@ import os
 import logging
 from pathlib import Path
 
-
-
+# Configurable DB path
+# Default location is in the same directory as the script
+DEFAULT_DB_NAME = "reminders.db"
 
 # set a defined path to the reminders database
 # use os maybe to ensure SQLite always tries to use the same place as the script instead of relying on the working dir?
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "reminders.db")
+
+DB_PATH = os.getenv("REMINDERS_DB_PATH", os.path.join(BASE_DIR, DEFAULT_DB_NAME))
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def init_db():
+def init_db(db_path=DB_PATH):
     """ init function to create the reminders database and if it does exist, open the db and read/write from and to it """
 
     # elaborate logging 
@@ -26,8 +28,10 @@ def init_db():
 
     # add a set path so maybe i can ensure the path exists?
     logging.info(f"Init DB on v{DB_PATH}")
+
     os.makedirs(os.path.dirname(BASE_DIR), exist_ok=True)
-    Path(DB_PATH).touch()
+
+    Path(db_path).touch(exist_ok=True)
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
