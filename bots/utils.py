@@ -10,10 +10,10 @@ import logging
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "reminders.db")
 
-# quick logging info
-logging.info(f"DB_PATH = {DB_PATH}")
-logging.info(f"DB directory exists? {os.path.exists(os.path.dirname(DB_PATH))}")
-logging.info(f"DB directory writable? {os.access(os.path.dirname(DB_PATH), os.W_OK)}")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 def init_db():
     """ init function to create the reminders database and if it does exist, open the db and read/write from and to it """
@@ -22,27 +22,26 @@ def init_db():
     logging.info(f"Initializing database at: {DB_PATH}")
 
     # add a set path so maybe i can ensure the path exists?
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS reminders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                channel_id INTEGER NOT NULL,
-                message TEXT NOT NULL,
-                remind_time TEXT NOT NULL,
-                dm INTEGER NOT NULL
-            )
-        """)
-        conn.commit()
-        logging.info("Reminders table ensured in database.")
-    except sqlite3.Error as e:
-        logging.error(f"Error initializing database: {e}")
-    finally:
-        conn.close()
+    logging.info(f"Init DB on v{DB_PATH}")
+    os.makedirs(os.path.dirname(BASE_DIR), exist_ok=True)
+    with open(fname, 'a'):
+        os.utime(DB_PATH, None)
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            channel_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            remind_time TEXT NOT NULL,
+            dm INTEGER NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+    logging.info(f"Init DB successfull on v{DB_PATH}")
 
 
 
