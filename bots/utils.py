@@ -1,13 +1,18 @@
 # This utils file handles the helper functions for the database and functions of the database itself. 
 
 import sqlite3
+import os
 
 # set a defined path to the reminders database
-DB_PATH = "reminders.db"
+# use os maybe to ensure SQLite always tries to use the same place as the script instead of relying on the working dir?
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "reminders.db")
 
 def init_db():
     """ init function to create the reminders database and if it does exist, open the db and read/write from and to it """
 
+    # add a set path so maybe i can ensure the path exists?
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""

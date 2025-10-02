@@ -22,7 +22,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.2"
+__version__ = "1.2.1"
 
 # Configure logging
 logging.basicConfig(
