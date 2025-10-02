@@ -8,11 +8,20 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "reminders.db")
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 def init_db():
     """ init function to create the reminders database and if it does exist, open the db and read/write from and to it """
 
     # add a set path so maybe i can ensure the path exists?
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    logging.info(f"Init DB on v{DB_PATH}")
+    os.makedirs(os.path.dirname(BASE_DIR), exist_ok=True)
+    with open(fname, 'a'):
+        os.utime(DB_PATH, None)
+    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
@@ -27,6 +36,7 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+    logging.info(f"Init DB successfull on v{DB_PATH}")
 
 
 
