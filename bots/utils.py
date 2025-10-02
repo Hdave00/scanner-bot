@@ -3,6 +3,9 @@
 import sqlite3
 import os
 import logging
+from pathlib import Path
+
+
 
 
 # set a defined path to the reminders database
@@ -24,8 +27,7 @@ def init_db():
     # add a set path so maybe i can ensure the path exists?
     logging.info(f"Init DB on v{DB_PATH}")
     os.makedirs(os.path.dirname(BASE_DIR), exist_ok=True)
-    with open(fname, 'a'):
-        os.utime(DB_PATH, None)
+    Path(DB_PATH).touch()
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
