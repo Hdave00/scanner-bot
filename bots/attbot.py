@@ -21,7 +21,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.3"
+__version__ = "1.3.1"
 
 # Configure logging
 logging.basicConfig(
@@ -528,6 +528,16 @@ async def hilf(interaction: discord.Interaction):
     )
 
     embed.add_field(
+        name="/remindme",
+        value="Allows you to set a reminder in iso format for UTC. So like this 2025-10-01 05:00. The bot will then send you a dm with the reminder. Users are limit to one reminder per user, unless you cancel the existing reminder and make a new one."
+    )
+
+    embed.add_field(
+        name="/myreminders",
+        value="Allows you to check your active reminder and keep track of it."
+    )
+
+    embed.add_field(
         name="/recent_authors",
         value="Lists authors of the last 'n' messages in the channel. Mainly used for debugging or simply finding out who has made messages. This command is used to figure out if it was apollo bot, or another bot/author that made the message/post.",
         inline=False
@@ -887,28 +897,92 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
         await interaction.followup.send(f"Only {len(event_log)} events scanned. Use `/scan_apollo` first.")
         return
 
+    # build a list of the last "limit" unique events to reduce duplication
+    def event_key(ev):
+        # try several common keys, fallback to None
+        return ev.get("id") or ev.get("message_id") or ev.get("timestamp") or ev.get("title")
+
+    seen = set()
+    unique_events = []
+
+    # iterate from newest to oldest, collect unique keys until we have "limit"
+    for ev in reversed(event_log):
+        key = event_key(ev)
+
+        # if no key present, we fallback to using a string representation for dedupe
+        dedupe_key = key if key is not None else repr(ev)
+        if dedupe_key in seen:
+            continue
+        
+        seen.add(dedupe_key)
+        unique_events.append(ev)
+        if len(unique_events) >= limit:
+            break
+
+    recent_events = list(reversed(unique_events))  # restore chronological order
+
     # normalize the user name like scan_apollo does
     normalized_target = normalize_name(user.display_name)
 
-    recent_events = event_log[-limit:]
     accepted = 0
     declined = 0
+    no_response = 0
 
-    # switching from lists to sets to avoid double counting
-    for event in recent_events:
-        accepted_names = {uid for uid, _ in event.get("accepted", [])}
-        declined_names = {uid for uid, _ in event.get("declined", [])}
+    def extract_uid(entry):
+        """Safely extract the 'uid' like value from an accepted/declined entry.
+           Accepts tuples/lists like (uid, extra) or plain strings/ints."""
+        
+        if isinstance(entry, (list, tuple)) and len(entry) > 0:
+            return entry[0]
+        return entry
 
-        # removed elif conditional to ensure Apollos embeds lists a member in both accepted and declined, and we see it instead of silently ignoring it
-        if normalized_target in accepted_names:
+    for idx, event in enumerate(recent_events, start=1):
+        raw_accepted = event.get("accepted", [])
+        raw_declined = event.get("declined", [])
+
+        # Normalize accepted names/ids so first stringify then normalise, 
+        # AND CHANGE FROM LIST TO SET BECAUSE PYTHON LISTS DONT HAVE UNIQUE INDEXING
+        accepted_names = set()
+        for entry in raw_accepted:
+            uid = extract_uid(entry)
+            try:
+                accepted_names.add(normalize_name(str(uid)))
+            except Exception:
+                logging.exception("Error normalizing accepted entry in event %s: %r", event_key(event) or f"idx{idx}", entry)
+
+        declined_names = set()
+        for entry in raw_declined:
+            uid = extract_uid(entry)
+            try:
+                declined_names.add(normalize_name(str(uid)))
+            except Exception:
+                logging.exception("Error normalizing declined entry in event %s: %r", event_key(event) or f"idx{idx}", entry)
+
+        accepted_match = normalized_target in accepted_names
+        declined_match = normalized_target in declined_names
+
+        # log per-event details to help debug why counts are incremented
+        logging.debug(
+            "check_member: event_idx=%d key=%s raw_accepted=%r accepted_norm=%r accepted_match=%s raw_declined=%r declined_norm=%r declined_match=%s",
+            idx,
+            event_key(event) or "N/A",
+            raw_accepted,
+            accepted_names,
+            accepted_match,
+            raw_declined,
+            declined_names,
+            declined_match
+        )
+
+        if accepted_match and not declined_match:
             accepted += 1
-        if normalized_target in declined_names:
+        elif declined_match and not accepted_match:
             declined += 1
-
-    no_response = limit - (accepted + declined)
+        elif not (accepted_match or declined_match):
+            no_response += 1
 
     msg = (
-        f"**Attendance for {user.display_name}** (Last {limit} Events)\n"
+        f"**Attendance for {user.display_name}** (Last {len(recent_events)} Events)\n"
         f"Accepted: **{accepted}** ✅\n"
         f"Declined: **{declined}** ❌\n"
         f"No Response: **{no_response}**"
