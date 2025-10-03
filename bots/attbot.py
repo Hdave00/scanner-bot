@@ -7,7 +7,7 @@ This is a unique discord bot that reverse-engineers the closed source event and 
 import discord
 import os
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from discord.ext import commands
 from discord import TextChannel
 from discord import app_commands
@@ -16,13 +16,12 @@ import re
 import random
 import secrets
 import logging
-import asyncio
-from datetime import datetime, timedelta
+import asyncio 
 import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.2.2"
+__version__ = "1.3"
 
 # Configure logging
 logging.basicConfig(
@@ -145,23 +144,56 @@ async def on_ready():
 async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm):
     """ function gets reminder task in iso format and check if there is a dm to be sent to the user to confirm or create a message """
 
-    now = datetime.now(datetime.timezone.utc)
-    remind_time = datetime.fromisoformat(remind_time)
-    delay = (remind_time - now).total_seconds()
+    try:
+        now = datetime.now(timezone.utc)
 
-    # sleep if any delay 
-    if delay > 0:
-        await asyncio.sleep(delay)
+        # fromisoformat preserves timezone if string has +00:00
+        try:
+            remind_time = datetime.fromisoformat(remind_time)
+        except Exception as e:
+            logging.error(f"Failed to parse remind_time for reminder {reminder_id}: {e}")
+            return
 
-    # get user who made the command and show them a message
-    user = await bot.fetch_user(user_id)
-    if dm:
-        await user.send(f"Reminder: {message}")
-    else:
-        channel = bot.get_channel(channel_id)
-        await channel.send(f"{user.mention} Reminder: {message}")
+        delay = (remind_time - now).total_seconds()
 
-    delete_reminder(reminder_id)
+        # sleep if any delay 
+        if delay > 0:
+            try:
+                await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                logging.warning(f"Reminder task {reminder_id} was cancelled before execution.")
+                return
+
+        # get user who made the command and show them a message
+        try:
+            user = await bot.fetch_user(user_id)
+        except Exception as e:
+            logging.error(f"Failed to fetch user {user_id} for reminder {reminder_id}: {e}")
+            return
+
+        try:
+            if dm:
+                await user.send(f"Reminder: {message}")
+
+            else:
+                channel = bot.get_channel(channel_id)
+
+                if channel is None:
+                    logging.error(f"Channel {channel_id} not found for reminder {reminder_id}.")
+                    return
+                await channel.send(f"{user.mention} Reminder: {message}")
+        # log failure to send reminder
+        except Exception as e:
+            logging.error(f"Failed to send reminder {reminder_id} to user {user_id}: {e}")
+            return
+        # try deleting the reminder, if fail, log it
+        try:
+            delete_reminder(reminder_id)
+        except Exception as e:
+            logging.error(f"Failed to delete reminder {reminder_id} after sending: {e}")
+
+    except Exception as e:
+        logging.exception(f"Unexpected error in reminder_task {reminder_id}: {e}")
 
 
 
@@ -332,9 +364,10 @@ async def dump_attendance(ctx):
 async def remindme(interaction: discord.Interaction, message: str, date: str, dm: bool = False):
     """ Bot command to create, delete or check active reminders """
 
-    # try to get the reminder time, ensure that the user uses correct format
+    # try to get the reminder time, ensure that the user uses correct format, hardcode the UTC format as the rest of the logic in utils.py and function above
+    # expect that format as well
     try:
-        remind_time = datetime.strptime(date, "%Y-%m-%d %H:%M")
+        remind_time = datetime.strptime(date, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
     except ValueError:
         await interaction.response.send_message("Invalid date format. Use `YYYY-MM-DD HH:MM` in UTC.", ephemeral=True)
         return
@@ -346,9 +379,10 @@ async def remindme(interaction: discord.Interaction, message: str, date: str, dm
         await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
         return
 
-    add_reminder(interaction.user.id, interaction.channel.id, message, remind_time.isoformat(), dm)
+    # since i rewrote add_reminder to accept a datetime and handle the conversion itself, just pass remind_time directly
+    add_reminder(interaction.user.id, interaction.channel.id, message, remind_time, dm)
 
-    # grab the last inserted reminder id
+    # grab the last inserted reminder id, and since reminder_task expects the dbase's string, pass remind_time.isoformat() when scheduling the task
     reminder_id = get_reminders()[-1][0]
 
     asyncio.create_task(reminder_task(reminder_id, interaction.user.id, interaction.channel.id, message, remind_time.isoformat(), dm))

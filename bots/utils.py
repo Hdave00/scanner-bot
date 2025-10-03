@@ -4,6 +4,7 @@ import sqlite3
 import os
 import logging
 from pathlib import Path
+from datetime import datetime, timezone
 
 # Configurable DB path
 # Default location is in the same directory as the script
@@ -68,10 +69,15 @@ def get_user_reminders(user_id: int, db_path=DB_PATH):
 # Command for adding a reminder, takes input of user it, channel id, the message to save as a string, time to be reminded as, as a string as well and the
 # dm to send to the user 
 def add_reminder(user_id: int, channel_id: int, message: str, remind_time: str, dm: bool, db_path=DB_PATH):
+
+    # hard coding the remind_time in ISO format
+    remind_time_utc = remind_time.astimezone(timezone.utc)
+    remind_time_str = remind_time_utc.isoformat()
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("""INSERT INTO reminders (user_id, channel_id, message, remind_time, dm) VALUES (?, ?, ?, ?, ?)"""
-                   ,(user_id, channel_id, message, remind_time, int(dm)))
+                   ,(user_id, channel_id, message, remind_time_str, int(dm)))
     
     # commit the insertion and close connection
     conn.commit()
