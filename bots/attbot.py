@@ -403,21 +403,43 @@ class ReminderModal(discord.ui.Modal):
         self.add_item(self.date)
         self.add_item(self.dm)
 
+    # Flexible date parser, make it a static method, as a helper function
+    @staticmethod
+    def parse_datetime(input_str: str):
+        """Try parsing a date string in multiple formats."""
+
+        formats = [
+            "%Y-%m-%d %H:%M",
+            "%Y/%m/%d %H:%M",
+            "%Y.%m.%d %H:%M",
+            "%Y%m%d %H:%M",
+            "%Y-%m-%dT%H:%M",  # ISO
+        ]
+        for fmt in formats:
+            try:
+                return datetime.strptime(input_str, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+        # Try dateutil.parser as a fallback (handles e.g. "Oct 5 2025 14:30")
+        try:
+            return parser.parse(input_str).astimezone(timezone.utc)
+        except Exception:
+            return None
+
     # nested helper function to check the time format string on submit
     async def on_submit(self, interaction: discord.Interaction):
 
-        # try saving the time requested by user using modals
-        try:
-            remind_time = datetime.strptime(str(self.date), "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-        except ValueError:
+        # try saving the time requested by user using modals to the datatbase and parse reminder time using the static method/helper function
+        remind_time = self.parse_datetime(str(self.date))
+        if remind_time is None:
             await interaction.response.send_message(
-                "Invalid date format. Use `YYYY-MM-DD HH:MM` in UTC.",
-                ephemeral=True
+                "Invalid date format.\nTry `YYYY-MM-DD HH:MM` (UTC) or similar formats.",
+                ephemeral=True,
             )
             return
 
-        # setting the dm bool 
-        dm_value = str(self.dm).strip().lower() in ("yes", "true", "1")
+        # setting the dm preference
+        dm_value = str(self.dm).strip().lower() in ("yes", "true", "1", "y")
 
         # Check existing reminders, use list iteration for the user id in insertion schema which is r[1] index
         existing = [r for r in get_reminders() if r[1] == interaction.user.id]
@@ -428,10 +450,12 @@ class ReminderModal(discord.ui.Modal):
         add_reminder(interaction.user.id, interaction.channel.id, str(self.message), remind_time, dm_value)
         reminder_id = get_reminders()[-1][0]
 
+        # schedule the reminder
         asyncio.create_task(
             reminder_task(reminder_id, interaction.user.id, interaction.channel.id, str(self.message), remind_time.isoformat(), dm_value)
         )
 
+        # send confirmation message to user
         await interaction.response.send_message(
             f"✅ Reminder set for {remind_time.strftime('%Y-%m-%d %H:%M UTC')}",
             ephemeral=True
