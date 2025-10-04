@@ -12,12 +12,14 @@ from discord.ext import commands
 from discord import TextChannel
 from discord import app_commands
 from collections import defaultdict
+from dateutil import parser
 import re
 import random
 import secrets
 import logging
 import asyncio 
 import sqlite3
+
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
@@ -149,7 +151,14 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
 
         # fromisoformat preserves timezone if string has +00:00
         try:
-            remind_time = datetime.fromisoformat(remind_time)
+
+            # using dateutil.parser to to handle different timezones safely, and normalising remind_time beforehand
+            remind_time = parser.isoparse(remind_time)
+
+            # if remined time is naive, default to UTC
+            if remind_time.tzinfo is None:
+                remind_time = remind_time.replace(tzinfo=timezone.utc)
+
         except Exception as e:
             logging.error(f"Failed to parse remind_time for reminder {reminder_id}: {e}")
             return
@@ -182,10 +191,12 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
                     logging.error(f"Channel {channel_id} not found for reminder {reminder_id}.")
                     return
                 await channel.send(f"{user.mention} Reminder: {message}")
+
         # log failure to send reminder
         except Exception as e:
             logging.error(f"Failed to send reminder {reminder_id} to user {user_id}: {e}")
             return
+        
         # try deleting the reminder, if fail, log it
         try:
             delete_reminder(reminder_id)

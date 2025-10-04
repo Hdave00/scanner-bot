@@ -5,6 +5,8 @@ import os
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
+from dateutil import parser
+from typing import Union
 
 # Configurable DB path
 # Default location is in the same directory as the script
@@ -66,11 +68,27 @@ def get_user_reminders(user_id: int, db_path=DB_PATH):
 
 
 
-# Command for adding a reminder, takes input of user it, channel id, the message to save as a string, time to be reminded as, as a string as well and the
-# dm to send to the user 
-def add_reminder(user_id: int, channel_id: int, message: str, remind_time: str, dm: bool, db_path=DB_PATH):
+# Command for adding a reminder, takes input of user id, channel id, the message to save as a string, time to be reminded as, as a string as well and the
+# dm to send to the user. 
+# Also using "Union" for type safety and because we call ".astimezone" so if its a string, we dont get an AttributeError at runtime.
+def add_reminder(user_id: int, channel_id: int, message: str, remind_time: Union[str, datetime], dm: bool, db_path=DB_PATH):
 
-    # hard coding the remind_time in ISO format
+    """ remind_time may be a datetime or an ISO string. This function normalizes the time to
+    a UTC-aware ISO string before inserting into the DB. """
+
+    # try to parse string times into datetime if needed, or fallback on ISO times
+    if isinstance(remind_time, str):
+        try:
+            remind_time = parser.isoparse(remind_time)
+        except Exception:
+            # fallback to fromisoformat for slightly different inputs
+            remind_time = datetime.fromisoformat(remind_time)
+
+    # ensure we now have a datetime
+    if not isinstance(remind_time, datetime):
+        raise TypeError("remind_time must be a datetime or ISO-formatted string")
+
+    # hard coding the remind_time in ISO format, .astimezone is a datetime method 
     remind_time_utc = remind_time.astimezone(timezone.utc)
     remind_time_str = remind_time_utc.isoformat()
 
