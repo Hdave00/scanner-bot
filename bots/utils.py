@@ -23,6 +23,19 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+""" Table schema we are using below for insertion and creation of reminders
++--------------------------------------------------------------------+
+| Index  | Column        | Type      | Example Value                 |
+| ------ | ------------- | --------- | ----------------------------- |
+|  r[0]  |  id           | int       |  1                            |
+|  r[1]  |  user_id      | int       |  1234567890                   |
+|  r[2]  |  channel_id   | int       |  9876543210                   |
+|  r[3]  |  message      | str       |  "Staff Meeting"              |
+|  r[4]  |  remind_time  | str (ISO) |  "2025-10-04T12:00:00+00:00"  |
+|  r[5]  |  dm           | int (0/1) |  1                            |
++--------------------------------------------------------------------+
+"""
+
 def init_db(db_path=DB_PATH):
     """ init function to create the reminders database and if it does exist, open the db and read/write from and to it """
 

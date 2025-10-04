@@ -369,36 +369,58 @@ async def dump_attendance(ctx):
     await ctx.send(f"Current entries: {len(attendance_log)}")
 
 
+class ReminderModal(discord.ui.Modal, title="Create a Reminder"):
+
+    """ reminder modal class to forego any kind of user input errors, let them choose within given parameters and not free type the time.
+        Method allows users to set a message, date and dm type via modals. """
+
+    # set the message, date and dm modals with hints and ISO format UTC time
+    message = discord.ui.TextInput(label="Reminder Message", style=discord.TextStyle.short)
+    date = discord.ui.TextInput(label="Date & Time (YYYY-MM-DD HH:MM, UTC)", style=discord.TextStyle.short)
+    dm = discord.ui.TextInput(label="Send as DM? (yes/no)", style=discord.TextStyle.short, default="no")
+
+    # nested helper function to check the time format string on submit
+    async def on_submit(self, interaction: discord.Interaction):
+
+        # try saving the time requested by user using modals
+        try:
+            remind_time = datetime.strptime(str(self.date), "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        except ValueError:
+            await interaction.response.send_message(
+                "Invalid date format. Use `YYYY-MM-DD HH:MM` in UTC.",
+                ephemeral=True
+            )
+            return
+
+        # setting the dm bool 
+        dm_value = str(self.dm).strip().lower() in ("yes", "true", "1")
+
+        # Check existing reminders
+        existing = [r for r in get_reminders() if r[1] == interaction.user.id]
+        if existing:
+            await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
+            return
+
+        add_reminder(interaction.user.id, interaction.channel.id, str(self.message), remind_time, dm_value)
+        reminder_id = get_reminders()[-1][0]
+
+        asyncio.create_task(
+            reminder_task(reminder_id, interaction.user.id, interaction.channel.id, str(self.message), remind_time.isoformat(), dm_value)
+        )
+
+        await interaction.response.send_message(
+            f"✅ Reminder set for {remind_time.strftime('%Y-%m-%d %H:%M UTC')}",
+            ephemeral=True
+        )
+
+
 
 @bot.tree.command(name="remindme", description="Set a reminder (once per day).")
 @app_commands.describe(message="Reminder message", date="Date (YYYY-MM-DD HH:MM, UTC)", dm="Send as DM?")
-async def remindme(interaction: discord.Interaction, message: str, date: str, dm: bool = False):
-    """ Bot command to create, delete or check active reminders """
+async def remindme(interaction: discord.Interaction):
+    """ Open the reminder creation modal. """
 
-    # try to get the reminder time, ensure that the user uses correct format, hardcode the UTC format as the rest of the logic in utils.py and function above
-    # expect that format as well
-    try:
-        remind_time = datetime.strptime(date, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-    except ValueError:
-        await interaction.response.send_message("Invalid date format. Use `YYYY-MM-DD HH:MM` in UTC.", ephemeral=True)
-        return
-
-    # Enforce once per day per user, handle the limit error gracefully and if they have a reminder already, send an "ephemeral" notification to them.
-    existing = [r for r in get_reminders() if r[1] == interaction.user.id]
-
-    if existing:
-        await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
-        return
-
-    # since i rewrote add_reminder to accept a datetime and handle the conversion itself, just pass remind_time directly
-    add_reminder(interaction.user.id, interaction.channel.id, message, remind_time, dm)
-
-    # grab the last inserted reminder id, and since reminder_task expects the dbase's string, pass remind_time.isoformat() when scheduling the task
-    reminder_id = get_reminders()[-1][0]
-
-    asyncio.create_task(reminder_task(reminder_id, interaction.user.id, interaction.channel.id, message, remind_time.isoformat(), dm))
-
-    await interaction.response.send_message(f"✅ Reminder set for {remind_time.strftime('%Y-%m-%d %H:%M UTC')}", ephemeral=True)
+    await interaction.response.send_modal(ReminderModal())
 
 
 
@@ -421,8 +443,11 @@ async def myreminders(interaction: discord.Interaction, cancel_id: int = None):
         await interaction.response.send_message("You have no active reminders.", ephemeral=True)
         return
 
-    # the reminder list will be a new line with its details
-    reminder_list = "\n".join([f"**ID {r[0]}** | {r[1]} | at `{r[2]}` | {'DM' if r[3] else 'Channel'}" for r in reminders])
+    # the reminder list will be a new line with its details. Using the parser method from dateutils here as well, and keep the indexes in line with the
+    # schema of creatin and insertion in utils.py. Here, we want to display r[0] -> user_id and the corresponding r[3] which is message. 
+    # For better clasrification, check schema in utils.py
+    reminder_list = "\n".join([
+    f"**ID {r[0]}** | {r[3]} | at `{parser.isoparse(r[4]).strftime('%Y-%m-%d %H:%M UTC')}` | {'DM' if r[5] else 'Channel'}"for r in reminders])
 
     await interaction.response.send_message(
         f"Your reminders:\n{reminder_list}\n\n"
