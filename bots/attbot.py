@@ -23,7 +23,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.3.1"
+__version__ = "1.4"
 
 # Configure logging
 logging.basicConfig(
@@ -395,7 +395,7 @@ class ReminderModal(discord.ui.Modal, title="Create a Reminder"):
         # setting the dm bool 
         dm_value = str(self.dm).strip().lower() in ("yes", "true", "1")
 
-        # Check existing reminders
+        # Check existing reminders, use list iteration for the user id in insertion schema which is r[1] index
         existing = [r for r in get_reminders() if r[1] == interaction.user.id]
         if existing:
             await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
@@ -416,7 +416,6 @@ class ReminderModal(discord.ui.Modal, title="Create a Reminder"):
 
 
 @bot.tree.command(name="remindme", description="Set a reminder (once per day).")
-@app_commands.describe(message="Reminder message", date="Date (YYYY-MM-DD HH:MM, UTC)", dm="Send as DM?")
 async def remindme(interaction: discord.Interaction):
     """ Open the reminder creation modal. """
 
