@@ -369,15 +369,39 @@ async def dump_attendance(ctx):
     await ctx.send(f"Current entries: {len(attendance_log)}")
 
 
-class ReminderModal(discord.ui.Modal, title="Create a Reminder"):
+class ReminderModal(discord.ui.Modal):
 
     """ reminder modal class to forego any kind of user input errors, let them choose within given parameters and not free type the time.
         Method allows users to set a message, date and dm type via modals. """
 
     # set the message, date and dm modals with hints and ISO format UTC time
-    message = discord.ui.TextInput(label="Reminder Message", style=discord.TextStyle.short)
-    date = discord.ui.TextInput(label="Date & Time (YYYY-MM-DD HH:MM, UTC)", style=discord.TextStyle.short)
-    dm = discord.ui.TextInput(label="Send as DM? (yes/no)", style=discord.TextStyle.short, default="no")
+    def __init__(self):
+        super().__init__(title="Create a Reminder")
+
+        # Define text inputs
+        self.message = discord.ui.TextInput(
+            label="Reminder Message",
+            style=discord.TextStyle.short,
+            placeholder="e.g. Take a break!",
+            required=True
+        )
+        self.date = discord.ui.TextInput(
+            label="Date & Time (YYYY-MM-DD HH:MM, UTC)",
+            style=discord.TextStyle.short,
+            placeholder="2025-10-05 14:30",
+            required=True
+        )
+        self.dm = discord.ui.TextInput(
+            label="Send as DM? (yes/no)",
+            style=discord.TextStyle.short,
+            default="no",
+            required=True
+        )
+
+        # Add items to modal
+        self.add_item(self.message)
+        self.add_item(self.date)
+        self.add_item(self.dm)
 
     # nested helper function to check the time format string on submit
     async def on_submit(self, interaction: discord.Interaction):
