@@ -446,10 +446,28 @@ class ReminderModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
 
         # try saving the time requested by user using modals to the datatbase and parse reminder time using the static method/helper function
-        remind_time = self.parse_datetime(str(self.date))
+        # USE `.value` to access what the user typed
+
+        date_text = self.date.value.strip()
+        message_text = self.message.value.strip()
+        dm_text = self.dm.value.strip()
+
+        # store remind_time variable from the parse_datetime method, as the date_text we set earlier
+        remind_time = self.parse_datetime(date_text)
         if remind_time is None:
             await interaction.response.send_message(
-                "Invalid date format.\nTry `YYYY-MM-DD HH:MM` (UTC) or similar formats.",
+                "Invalid date format.\nTry `YYYY-MM-DD HH:MM` (UTC) or " 
+                "include a timezone (e.g. `2025-10-05 14:30+00:00`).",
+                ephemeral=True,
+            )
+            return
+        
+        # User can't be trusted, enforce future time and not some arbitrary string that could be in the past
+        # optional: enforce future time
+        now = datetime.now(timezone.utc)
+        if remind_time <= now:
+            await interaction.response.send_message(
+                "Please choose a time in the future (UTC).",
                 ephemeral=True,
             )
             return
