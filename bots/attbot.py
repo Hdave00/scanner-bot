@@ -378,7 +378,9 @@ class ReminderModal(discord.ui.Modal):
     def __init__(self):
         super().__init__(title="Create a Reminder")
 
-        # Define text inputs
+        # Define text inputs, use discord's textstyle
+        # Define placeholder message for each field ie, message, date and whether to DM or not.
+
         self.message = discord.ui.TextInput(
             label="Reminder Message",
             style=discord.TextStyle.short,
@@ -398,14 +400,16 @@ class ReminderModal(discord.ui.Modal):
             required=True
         )
 
-        # Add items to modal
+        # Add the 3 items to modal
         self.add_item(self.message)
         self.add_item(self.date)
         self.add_item(self.dm)
 
     # Flexible date parser, make it a static method, as a helper function
+    # I was passing the TextInput object to the parser instead of the user-entered string, map the input_str to datetime using -> and handle if it is None
+    # from the get go
     @staticmethod
-    def parse_datetime(input_str: str):
+    def parse_datetime(input_str: str) -> datetime | None: 
         """Try parsing a date string in multiple formats."""
 
         formats = [
@@ -417,14 +421,26 @@ class ReminderModal(discord.ui.Modal):
         ]
         for fmt in formats:
             try:
-                return datetime.strptime(input_str, fmt).replace(tzinfo=timezone.utc)
+
+                dt = datetime.strptime(input_str, fmt)
+                # Assume user entered UTC if no tz given by the format
+                return dt.replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
-        # Try dateutil.parser as a fallback (handles e.g. "Oct 5 2025 14:30")
+
+        # Fallback to dateutil
         try:
-            return parser.parse(input_str).astimezone(timezone.utc)
+            dt = parser.parse(input_str)
         except Exception:
             return None
+
+        if dt.tzinfo is None:
+
+            # If there is no tzinfo on parsed result, assume the user meant UTC
+            return dt.replace(tzinfo=timezone.utc)
+        
+        # If it had an explicit timezone, convert it to UTC
+        return dt.astimezone(timezone.utc)
 
     # nested helper function to check the time format string on submit
     async def on_submit(self, interaction: discord.Interaction):
