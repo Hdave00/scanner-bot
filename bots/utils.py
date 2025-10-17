@@ -73,7 +73,7 @@ def get_user_reminders(user_id: int, db_path=DB_PATH):
     # create a connection to dbase, select all reminders of the user who made the command NOTE this funtion is tied to the "myreminder" command in attbot.py
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute(""" SELECT id, message, remind_time, dm FROM reminders WHERE user_id = ? """, (user_id,))
+    cursor.execute(""" SELECT id, user_id, channel_id, message, remind_time, dm FROM reminders WHERE user_id = ? """, (user_id,))
 
     rows = cursor.fetchall()
     conn.close()
@@ -128,9 +128,14 @@ def get_reminders(db_path=DB_PATH):
 
 
 # functionality delete a reminder if a user wishes to
-def delete_reminder(reminder_id: int, db_path=DB_PATH):
+def delete_reminder(reminder_id: int, user_id: int, db_path=DB_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
+
+    # make sure one user cant delete another user's reminders 
+    cursor.execute(
+        "DELETE FROM reminders WHERE id = ? AND user_id = ?", (reminder_id, user_id))
+    deleted = cursor.rowcount
     conn.commit()
     conn.close()
+    return deleted > 0

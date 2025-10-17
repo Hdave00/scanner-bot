@@ -9,8 +9,8 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from discord.ext import commands
-from discord import TextChannel
-from discord import app_commands
+from discord.ui import View, Select
+from discord import TextChannel, app_commands, Interaction
 from collections import defaultdict
 from dateutil import parser
 import re
@@ -466,10 +466,7 @@ class ReminderModal(discord.ui.Modal):
         # optional: enforce future time
         now = datetime.now(timezone.utc)
         if remind_time <= now:
-            await interaction.response.send_message(
-                "Please choose a time in the future (UTC).",
-                ephemeral=True,
-            )
+            await interaction.response.send_message("Please choose a time in the future (UTC).",ephemeral=True,)
             return
 
         # setting the dm preference
@@ -481,12 +478,14 @@ class ReminderModal(discord.ui.Modal):
             await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
             return
 
-        add_reminder(interaction.user.id, interaction.channel.id, str(self.message), remind_time, dm_value)
+        # store timezone-aware datetime, only convert to string here if DB expects it (which it doesnt really atm)
+        add_reminder(interaction.user.id, interaction.channel.id, message_text, remind_time, dm_value)
         reminder_id = get_reminders()[-1][0]
 
         # schedule the reminder
+        # Pass the datetime object unless reminder_task expects a string ISO
         asyncio.create_task(
-            reminder_task(reminder_id, interaction.user.id, interaction.channel.id, str(self.message), remind_time.isoformat(), dm_value)
+            reminder_task(reminder_id, interaction.user.id, interaction.channel.id, message_text, remind_time, dm_value)
         )
 
         # send confirmation message to user
@@ -508,32 +507,62 @@ async def remindme(interaction: discord.Interaction):
 # TODO maybe not just delete the whole task directly from db, but read asyncio's docs to remove/delete the reminder itself. Probably will save a bit
 # of memory too
 @bot.tree.command(name="myreminders", description="List or cancel your reminders.")
-@app_commands.describe(cancel_id="ID of reminder to cancel")
-async def myreminders(interaction: discord.Interaction, cancel_id: int = None):
+async def myreminders(interaction: Interaction):
     """ command to list the user's reminders and cancel them before they go off, to make a new one """
 
     # Cancel a reminder, if the cancel id we set matches the id that we saved in the delete_reminder function in utils.py
-    if cancel_id:
-        delete_reminder(cancel_id)
-        await interaction.response.send_message(f"Reminder {cancel_id} canceled.", ephemeral=True)
-        return
-
-    # Otherwise list all reminders
     reminders = get_user_reminders(interaction.user.id)
     if not reminders:
         await interaction.response.send_message("You have no active reminders.", ephemeral=True)
         return
 
-    # the reminder list will be a new line with its details. Using the parser method from dateutils here as well, and keep the indexes in line with the
-    # schema of creatin and insertion in utils.py. Here, we want to display r[0] -> user_id and the corresponding r[3] which is message. 
-    # For better clasrification, check schema in utils.py
-    reminder_list = "\n".join([
-    f"**ID {r[0]}** | {r[3]} | at `{parser.isoparse(r[4]).strftime('%Y-%m-%d %H:%M UTC')}` | {'DM' if r[5] else 'Channel'}"for r in reminders])
+    # Build a Select dropdown for reminders, store options as a list parse the time set by user as an ISO in the correct string format
+    options = []
+    for r in reminders:
+        reminder_id, _, _, message, time_str, dm_flag = r
+        time_fmt = parser.isoparse(time_str).strftime("%Y-%m-%d %H:%M UTC")
+        label = f"{message[:50]} ({time_fmt})"
+        description = "DM" if dm_flag else "Channel"
+        options.append(discord.SelectOption(label=label, description=description, value=str(reminder_id)))
 
-    await interaction.response.send_message(
-        f"Your reminders:\n{reminder_list}\n\n"
-        f"Use `/myreminders cancel_id:<id>` to cancel one.",
-        ephemeral=True)
+    select = Select(
+        placeholder="Choose a reminder to cancel...",
+        options=options,
+        min_values=1,
+        max_values=1,
+    )
+
+    # NOTE this is deprecated because i dont want to use /myreminders cancel_id:<id> as its messy for the user
+    """ if cancel_id is not None:
+            delete_reminder(cancel_id)
+            await interaction.response.send_message(f"Reminder {cancel_id} canceled.", ephemeral=True)
+            return
+    """
+
+    # helper function for quick call to delete a reminder within the myreminder command itself 
+    async def select_callback(interaction2: Interaction):
+
+        reminder_id = int(select.values[0])
+
+        # make sure ther eis afallbakc, if no issues or if indeed issues, let the user know.
+        success = delete_reminder(reminder_id, interaction2.user.id)
+        if success:
+            await interaction2.response.edit_message(
+                content=f"Reminder {reminder_id} canceled.",
+                view=None
+            )
+        else:
+            await interaction2.response.edit_message(
+                content="Could not cancel that reminder — it may already have been deleted.",
+                view=None
+            )
+
+    select.callback = select_callback
+
+    view = View()
+    view.add_item(select)
+
+    await interaction.response.send_message("Here are your active reminders. Select it to cancel:",view=view,ephemeral=True)
 
 
 
