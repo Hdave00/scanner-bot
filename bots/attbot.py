@@ -23,7 +23,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.5"
+__version__ = "1.6"
 
 # Configure logging
 logging.basicConfig(
@@ -33,7 +33,7 @@ logging.basicConfig(
 
 logging.info(f"Starting scanner-bot... v{__version__}")
 
-
+# Load env variables
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
@@ -1198,7 +1198,7 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
         return
 
     guild = interaction.guild
-    excluded_roles = {"Guest", "Reserves"}
+    excluded_roles = {"Guest", "Reserves", "External Unit Rep"}
 
     valid_members = [
         m for m in guild.members
@@ -1223,19 +1223,21 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
 
     low_responders = defaultdict(list)
 
+    threshold = limit // 2  # 50% of events (eg, 8 -> 4, 12 -> 6, 24 -> 12)
+
     for user_id in valid_ids:
         count = response_count.get(user_id, 0)
-        if count < 4:
+        if count <= threshold:   # 50% or less
             member = id_to_member.get(user_id)
             if member:
                 low_responders[count].append(member)
 
-    lines = [f"**Low Attendance Summary (Last {limit} Apollo Events)**", "_Showing users with fewer than 4 responses (✅ or ❌)_\n"]
+    lines = [f"**Low Attendance Summary (Last {limit} Apollo Events)**", f"_Showing users with {threshold} or fewer responses (50% or less)_\n"]
 
     if not low_responders:
-        lines.append("All active members responded to 4 or more events!")
+        lines.append(f"All active members responded to more than {threshold} events!")
     else:
-        for i in range(0, 4):
+        for i in range(0, threshold + 1):
             group = low_responders.get(i, [])
             if group:
                 lines.append(f"\n**Members with {i}/{limit} Responses:**")
