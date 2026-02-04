@@ -90,6 +90,9 @@ intents.messages = True
 # get the bot commands in a variable with usual/standard prefix
 bot = commands.Bot(command_prefix="/", intents=intents)
 
+scheduled_reminders = dict[int, asyncio.Task] = {}
+reminders_loaded = False # prevents duplicate scheduling on reconnect
+
 # In-memory log: pseudo_id -> log entry
 attendance_log = {}
 
@@ -113,9 +116,28 @@ def normalize_name(name: str) -> str:
     return name.strip()
 
 
+def schedule_reminder(reminder_id, user_id, channel_id, message, remind_time, dm):
+
+    """
+        Scheduling a reminder to create the reminder task, instead of insertion and deletion on runtime, that creates issues with tables being deleted
+        in the db but the actual even still active. 
+    """
+
+    # Avoid duplicates
+    if reminder_id in scheduled_reminders:
+        return
+
+    task = asyncio.create_task(
+        reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm)
+    )
+    scheduled_reminders[reminder_id] = task
+
+
 @bot.event
 async def on_ready():
     """Event syncing function to sync all available commands to deployment environment."""
+
+    global reminders_loaded
 
     # Info: Bot successfully connected
     logging.info(f"Bot connected as {bot.user}")
@@ -126,10 +148,13 @@ async def on_ready():
     # call the init function to get the db
     init_db()
 
-    # check for each reminder in the database and everytime the bot is used, reload reminders from the db and schedule/order then
-    for reminder in get_reminders():
-        reminder_id, user_id, channel_id, message, remind_time, dm = reminder
-        asyncio.create_task(reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm))
+    # Only load reminders ONCE per process lifetime, if reminders are not loaded, then for each reminder in the get_reminders utils functions,
+    # get that reminder and schedule it, set loaded reminders to True
+    if not reminders_loaded:
+        for r in get_reminders():
+            reminder_id, user_id, channel_id, message, remind_time, dm = r
+            schedule_reminder(reminder_id, user_id, channel_id, message, remind_time, dm)
+        reminders_loaded = True
 
     try:
         synced = await bot.tree.sync()
@@ -152,8 +177,9 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
         # fromisoformat preserves timezone if string has +00:00
         try:
 
-            # using dateutil.parser to to handle different timezones safely, and normalising remind_time beforehand
-            remind_time = parser.isoparse(remind_time)
+            # using dateutil.parser to to handle different timezones safely, and normalising to check remind_time beforehand
+            if isinstance(remind_time, str):
+                remind_time = parser.isoparse(remind_time)
 
             # if remined time is naive, default to UTC
             if remind_time.tzinfo is None:
@@ -172,6 +198,10 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
             except asyncio.CancelledError:
                 logging.warning(f"Reminder task {reminder_id} was cancelled before execution.")
                 return
+            
+        # Check database before sending query 
+        if not any(r[0] == reminder_id for r in get_reminders()):
+            return  # reminder was deleted
 
         # get user who made the command and show them a message
         try:
@@ -199,7 +229,7 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
         
         # try deleting the reminder, if fail, log it
         try:
-            delete_reminder(reminder_id)
+            delete_reminder(reminder_id, user_id)
         except Exception as e:
             logging.error(f"Failed to delete reminder {reminder_id} after sending: {e}")
 
@@ -384,7 +414,7 @@ class ReminderModal(discord.ui.Modal):
         self.message = discord.ui.TextInput(
             label="Reminder Message",
             style=discord.TextStyle.short,
-            placeholder="e.g. Take a break!",
+            placeholder="e.g. mission making meeting!",
             required=True
         )
         self.date = discord.ui.TextInput(
@@ -478,14 +508,20 @@ class ReminderModal(discord.ui.Modal):
             await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
             return
 
-        # store timezone-aware datetime, only convert to string here if DB expects it (which it doesnt really atm)
+        # store timezone-aware datetime, only convert to string here if DB expects it (which it doesnt really atm), then get the ID of the reminder
+        # we have just inserted 
         add_reminder(interaction.user.id, interaction.channel.id, message_text, remind_time, dm_value)
         reminder_id = get_reminders()[-1][0]
 
         # schedule the reminder
-        # Pass the datetime object unless reminder_task expects a string ISO
-        asyncio.create_task(
-            reminder_task(reminder_id, interaction.user.id, interaction.channel.id, message_text, remind_time, dm_value)
+        # use the tracked scheduler instead of create_task directly
+        schedule_reminder(
+            reminder_id,
+            interaction.user.id,
+            interaction.channel.id,
+            message_text,
+            remind_time,
+            dm_value
         )
 
         # send confirmation message to user
@@ -547,6 +583,11 @@ async def myreminders(interaction: Interaction):
         # make sure ther eis afallbakc, if no issues or if indeed issues, let the user know.
         success = delete_reminder(reminder_id, interaction2.user.id)
         if success:
+             # Cancel the running asyncio task
+            task = scheduled_reminders.pop(reminder_id, None)
+            if task:
+                task.cancel()
+
             await interaction2.response.edit_message(
                 content=f"Reminder {reminder_id} canceled.",
                 view=None
