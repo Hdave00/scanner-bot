@@ -110,9 +110,13 @@ def add_reminder(user_id: int, channel_id: int, message: str, remind_time: Union
     cursor.execute("""INSERT INTO reminders (user_id, channel_id, message, remind_time, dm) VALUES (?, ?, ?, ?, ?)"""
                    ,(user_id, channel_id, message, remind_time_str, int(dm)))
     
+    reminder_id = cursor.lastrowid
+    
     # commit the insertion and close connection
     conn.commit()
     conn.close()
+
+    return reminder_id
 
 
 

@@ -23,7 +23,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.6"
+__version__ = "1.7"
 
 # Configure logging
 logging.basicConfig(
@@ -169,19 +169,16 @@ async def on_ready():
 
 
 async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm):
+
     """ function gets reminder task in iso format and check if there is a dm to be sent to the user to confirm or create a message """
 
+    # We want to try, to try check if there is an existing reminder task in memory
     try:
-        now = datetime.now(timezone.utc)
-
-        # fromisoformat preserves timezone if string has +00:00
         try:
-
-            # using dateutil.parser to to handle different timezones safely, and normalising to check remind_time beforehand
             if isinstance(remind_time, str):
                 remind_time = parser.isoparse(remind_time)
 
-            # if remined time is naive, default to UTC
+            # If there is no timezone info, replace the existing reminder with the current UTC of the user who made the task
             if remind_time.tzinfo is None:
                 remind_time = remind_time.replace(tzinfo=timezone.utc)
 
@@ -189,52 +186,50 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
             logging.error(f"Failed to parse remind_time for reminder {reminder_id}: {e}")
             return
 
-        delay = (remind_time - now).total_seconds()
+        # Accurate long-term waiting, using this while loop, we continuosly check for the time of the reminder to be sent, by finding delta between
+        # time of reminder, and time now.
+        while True:
+            now = datetime.now(timezone.utc)
+            remaining = (remind_time - now).total_seconds()
 
-        # sleep if any delay 
-        if delay > 0:
+            if remaining <= 0:
+                break
+
             try:
-                await asyncio.sleep(delay)
+                await asyncio.sleep(min(remaining, 3600))
             except asyncio.CancelledError:
-                logging.warning(f"Reminder task {reminder_id} was cancelled before execution.")
+                logging.info(f"Reminder {reminder_id} cancelled during sleep.")
                 return
-            
-        # Check database before sending query 
+
+        # Make sure reminder still exists, by checking from the index of the get reminders dictionary on top, if not, then stop function
         if not any(r[0] == reminder_id for r in get_reminders()):
-            return  # reminder was deleted
-
-        # get user who made the command and show them a message
-        try:
-            user = await bot.fetch_user(user_id)
-        except Exception as e:
-            logging.error(f"Failed to fetch user {user_id} for reminder {reminder_id}: {e}")
             return
 
-        try:
-            if dm:
-                await user.send(f"Reminder: {message}")
-
-            else:
-                channel = bot.get_channel(channel_id)
-
-                if channel is None:
-                    logging.error(f"Channel {channel_id} not found for reminder {reminder_id}.")
-                    return
-                await channel.send(f"{user.mention} Reminder: {message}")
-
-        # log failure to send reminder
-        except Exception as e:
-            logging.error(f"Failed to send reminder {reminder_id} to user {user_id}: {e}")
+        # Final time sanity check
+        now = datetime.now(timezone.utc)
+        if now < remind_time - timedelta(seconds=2):
             return
-        
-        # try deleting the reminder, if fail, log it
-        try:
-            delete_reminder(reminder_id, user_id)
-        except Exception as e:
-            logging.error(f"Failed to delete reminder {reminder_id} after sending: {e}")
+
+        # Get the user.id in a variable, then check if the user opted for a DM or "in-channel reminder", if it was a dm, then send the dm with the message
+        # else get the channel_id the command was made in, and send the reminder there.
+        user = await bot.fetch_user(user_id)
+
+        if dm:
+            await user.send(f"Reminder: {message}")
+        else:
+            channel = bot.get_channel(channel_id)
+            if channel:
+                await channel.send(f"{user.mention} ⏰ Reminder: {message}")
+
+        # Once reminder has been executed, call delete reminder function and "cancel.Task" the reminder_id and the users_id from the db
+        delete_reminder(reminder_id, user_id)
 
     except Exception as e:
         logging.exception(f"Unexpected error in reminder_task {reminder_id}: {e}")
+
+    # Finally is a statement in python that ALWAYS executes after the try/except block, no matter if an exception was raised
+    finally:
+        scheduled_reminders.pop(reminder_id, None)
 
 
 
@@ -500,18 +495,27 @@ class ReminderModal(discord.ui.Modal):
             return
 
         # setting the dm preference
-        dm_value = str(self.dm).strip().lower() in ("yes", "true", "1", "y")
+        dm_value = dm_text.lower() in ("yes", "true", "1", "y")
 
         # Check existing reminders, use list iteration for the user id in insertion schema which is r[1] index
-        existing = [r for r in get_reminders() if r[1] == interaction.user.id]
-        if existing:
+        today = datetime.now(timezone.utc).date()
+        existing_today = [
+            r for r in get_reminders()
+            if r[1] == interaction.user.id and parser.isoparse(r[4]).date() == today
+        ]
+        if existing_today:
             await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
             return
 
         # store timezone-aware datetime, only convert to string here if DB expects it (which it doesnt really atm), then get the ID of the reminder
         # we have just inserted 
-        add_reminder(interaction.user.id, interaction.channel.id, message_text, remind_time, dm_value)
-        reminder_id = get_reminders()[-1][0]
+        reminder_id = add_reminder(
+            interaction.user.id,
+            interaction.channel.id,
+            message_text,
+            remind_time,
+            dm_value
+        )
 
         # schedule the reminder
         # use the tracked scheduler instead of create_task directly
