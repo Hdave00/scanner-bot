@@ -43,7 +43,7 @@ def init_db(db_path=DB_PATH):
     logging.info(f"Initializing database at: {DB_PATH}")
 
     # add a set path so maybe i can ensure the path exists?
-    logging.info(f"Init DB on v{DB_PATH}")
+    logging.info(f"Init DB on {DB_PATH}")
 
     os.makedirs(os.path.dirname(BASE_DIR), exist_ok=True)
 
@@ -63,7 +63,7 @@ def init_db(db_path=DB_PATH):
     """)
     conn.commit()
     conn.close()
-    logging.info(f"Init DB successfull on v{DB_PATH}")
+    logging.info(f"Init DB successfull on {DB_PATH}")
 
 
 
