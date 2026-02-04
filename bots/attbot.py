@@ -90,7 +90,7 @@ intents.messages = True
 # get the bot commands in a variable with usual/standard prefix
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-scheduled_reminders = dict[int, asyncio.Task] = {}
+scheduled_reminders: dict[int, asyncio.Task] = {}
 reminders_loaded = False # prevents duplicate scheduling on reconnect
 
 # In-memory log: pseudo_id -> log entry
