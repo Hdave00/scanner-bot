@@ -720,12 +720,12 @@ async def hilf(interaction: discord.Interaction):
 
     embed.add_field(
         name="/remindme",
-        value="Allows you to set a reminder in iso format for UTC. So like this 2025-10-01 05:00. The bot will then send you a dm with the reminder. Users are limit to one reminder per user, unless you cancel the existing reminder and make a new one."
+        value="Allows you to set a reminder in iso format for UTC. So like this 2025-10-01 05:00 then choose your UTC difference, +2 or +6 etc. The bot will then send you a dm with the reminder. Users are limit to one reminder per day per user, unless you cancel the existing reminder and make a new one."
     )
 
     embed.add_field(
         name="/myreminders",
-        value="Allows you to check your active reminder and keep track of it."
+        value="Allows you to check your active reminder and keep track of it or delete the reminder."
     )
 
     embed.add_field(
