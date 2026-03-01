@@ -251,6 +251,21 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
     target_channel = bot.get_channel(int(CHANNEL_ID))
     if not target_channel:
         return (0, 0)
+    
+    # set guild variable as int 
+    guild = bot.get_guild(int(GUILD_ID))
+    if not guild:
+        return (0, 0)
+
+    # ensure members are loaded
+    if not guild.chunked:
+        await guild.chunk()
+
+    # build quick lookup table
+    member_lookup = {
+        normalize_name(member.display_name): member
+        for member in guild.members
+    }
 
     apollo_events_collected = 0
 
@@ -290,25 +305,38 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
                         if name:
                             attendees.append(name)
 
-        # Normalize names
-        normalized_attendees = [(normalize_name(name), name) for name in attendees]
-        normalized_declined = [(normalize_name(name), name) for name in declined]
+        # Normalize names ans store them in a list, previously i was using display names, and i thought apollo did that as well. 
+        # Now, build member lookup from the actualy guild id set earlier in this function, resolve embed names to real member.id,
+        # and now hopefully normalised strings are not stored as IDs
+        resolved_attendees = []
+        for name in attendees:
+            normalized = normalize_name(name)
+            member = member_lookup.get(normalized)
+            if member:
+                resolved_attendees.append((member.id, member.display_name))
+
+        resolved_declined = []
+        for name in declined:
+            normalized = normalize_name(name)
+            member = member_lookup.get(normalized)
+            if member:
+                resolved_declined.append((member.id, member.display_name))
 
         # Log the event
         event_log.append({
             "event_id": msg.id,
-            "accepted": normalized_attendees,
-            "declined": normalized_declined
+            "accepted": resolved_attendees,
+            "declined": resolved_declined
         })
 
         # TODO: Check if pretty names vs user_id is actually correct and add logging message, for both apollo collection and for users who reacted
-        for user_id, pretty in normalized_attendees:
+        for user_id, pretty in resolved_attendees:
             pseudo_id = f"{msg.id}-{user_id}"
             if not already_logged(pseudo_id):
                 log_attendance(user_id, pretty, msg.id)
                 logged += 1
 
-        for user_id, pretty in normalized_declined:
+        for user_id, pretty in resolved_declined:
             pseudo_id = f"{msg.id}-{user_id}-declined"
             if not already_logged(pseudo_id):
                 log_attendance(user_id, pretty, msg.id, response="declined")
@@ -329,16 +357,20 @@ def log_attendance(user_id, username, event_id, response="accepted"):
         - Also useful for logging users/reactions without filtering in nested functions, by targeting specific embed parameters of a reactable button.
     """
 
-    normalized_id = normalize_name(user_id)
-    pseudo_id = f"{event_id}-{normalized_id}" if response == "accepted" else f"{event_id}-{normalized_id}-declined"
+    # ensure ID is stored as string for dictionary consistency
+    user_id_str = str(user_id)
 
+    # get the event id and compare with the user id string, and save as either accepted or declined
+    pseudo_id = (f"{event_id}-{user_id_str}"
+                 if response == "accepted"
+                 else f"{event_id}-{user_id_str}-declined"
+    )
+
+    # if the id is not in the attendance log global dict already, then append it and its attributes
     if pseudo_id not in attendance_log:
         attendance_log[pseudo_id] = {
-
             "timestamp": datetime.now().isoformat(),
-            "user_id": normalized_id,
-
-            # preserve pretty version (username_x becomes server specific 'nickname' eg for milsim clans: pyle -> Pvt G. Pyle)
+            "user_id": user_id_str,
             "username": username.strip(),
             "event_id": event_id,
             "response": response
