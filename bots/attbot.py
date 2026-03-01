@@ -23,7 +23,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.7"
+__version__ = "1.8"
 
 # Configure logging
 logging.basicConfig(
@@ -233,7 +233,7 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
 
 
 
-async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
+async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
 
     """
     Scans the channel history to collect exactly `limit` Apollo events.
@@ -301,6 +301,7 @@ async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
             "declined": normalized_declined
         })
 
+        # TODO: Check if pretty names vs user_id is actually correct and add logging message, for both apollo collection and for users who reacted
         for user_id, pretty in normalized_attendees:
             pseudo_id = f"{msg.id}-{user_id}"
             if not already_logged(pseudo_id):
@@ -314,7 +315,7 @@ async def scan_apollo_events(limit: int = 8) -> tuple[int, int]:
                 logged += 1
 
         # Stop early if we've collected enough Apollo events
-        if apollo_events_collected >= limit:
+        if limit and apollo_events_collected >= limit:
             break
 
     return (scanned_messages, logged)
