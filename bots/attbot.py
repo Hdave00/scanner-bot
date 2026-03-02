@@ -23,7 +23,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.8"
+__version__ = "1.9"
 
 # Configure logging
 logging.basicConfig(
@@ -1285,24 +1285,24 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
     valid_ids = {m.id for m in valid_members}
     id_to_member = {m.id: m for m in valid_members}
 
-    # Build a mapping: normalized display name -> member
-    name_map = {normalize_name(m.display_name): m for m in valid_members}
-
-    # Tally responses per user ID using normalized names
+    # create a dictionary to store the number of responses, and also HOW MANY events are being considered (according to the limit), and append to the
+    # event log global list
     response_count = defaultdict(int)
     recent_events = event_log[-limit:]
 
+    # iterate over each event within the given limit, then check within those events for accepted or declined, then sort them for each catergory per user_id 
     for event in recent_events:
         for category in ("accepted", "declined"):
-            for norm_name, _ in event.get(category, []):
-                member = name_map.get(norm_name)
-                if member:
-                    response_count[member.id] += 1
+            for user_id, _ in event.get(category, []):
+                # then if user has a valid, sort them, get the return count and append to response count
+                if user_id in valid_ids:
+                    response_count[user_id] += 1
 
     low_responders = defaultdict(list)
 
     threshold = limit // 2  # 50% of events (eg, 8 -> 4, 12 -> 6, 24 -> 12)
 
+    # 
     for user_id in valid_ids:
         count = response_count.get(user_id, 0)
         if count <= threshold:   # 50% or less
@@ -1450,8 +1450,9 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 # for slash commands using @bot.tree.command, the callback function must accept a discord.Interaction as the first argument, not ctx
 # wherever using ctx.send(), it should become interaction.response.send_message() or interaction.followup.send() depending on 
 # whether we're deferring the response.
-@bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined for the last 8 events")
-async def leaderboard(interaction: discord.Interaction):
+@bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined for the same number of events given to the scan apollo events command")
+@app_commands.describe(limit="How many Apollo events to use (min: 8, max: 24)")
+async def leaderboard(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
 
     """ 
     Command reads from the global event_log list and attendance_log dict to rank and summarize user attendance based on cached data,
@@ -1470,8 +1471,8 @@ async def leaderboard(interaction: discord.Interaction):
         await interaction.response.send_message("No events have been scanned yet.")
         return
 
-    # ser recent events to the event_log dict but only 8 bot messages from Apollo
-    recent_events = event_log[-8:]
+    # set recent events to the event_log dict but only 8 bot messages from Apollo
+    recent_events = event_log[-limit:]
 
     # now we want to set a dict for each type of reaction 
     # NOTE--- in this case its only accepted and declined because thats my use case, you can have multiple, just follow this template/general idea
@@ -1504,14 +1505,14 @@ async def leaderboard(interaction: discord.Interaction):
             unique_users.add(user_id)
             pretty_names[user_id] = pretty.strip()
 
-    # now we want to sort the accepted users, bu counting that dict and using a lambda function that sorts them by descending
+    # now we want to sort the accepted users, by counting that dict and using a lambda function that sorts them by descending
     accepted_sorted = sorted(
         accepted_count.items(),
         key=lambda x: (-x[1], x[0])
     )
 
     # we want a similar 'lines' list as previous function to show the leaderboard
-    lines = [f"**Attendance Leaderboard {datetime.now().strftime('%B')}**"]
+    lines = [f"**Attendance Leaderboard (Last {limit} Events)**"]
     total_events = len(recent_events)
 
     # and for each user 'user_id' and the 'count' (tuple) we want to number it firstly, then, append to the lines list by using the fstring of how we want
