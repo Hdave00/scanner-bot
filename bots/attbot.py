@@ -21,7 +21,7 @@ import asyncio
 import sqlite3
 
 
-from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
+from .utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
 __version__ = "1.9"
 
@@ -248,6 +248,8 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
     if 'attendance_log' in globals():
         attendance_log.clear()
 
+    # get the channel id as a method of the bot, declared globally which is an extension module to facilitate creation of bot commands. Therefore, 
+    # get_channel(...) is a method of the bot module.
     target_channel = bot.get_channel(int(CHANNEL_ID))
     if not target_channel:
         return (0, 0)
@@ -272,7 +274,8 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
     async for msg in target_channel.history(limit=max_to_scan):
         scanned_messages += 1
 
-        # Only count Apollo bot messages
+        # Only count Apollo bot messages (NOTE this can be changed with a simple variable to store the bot string to make it more robust and specific,
+        # but its of no real use to me)
         if "Apollo" not in msg.author.name:
             continue
 

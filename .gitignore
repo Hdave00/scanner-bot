@@ -7,3 +7,6 @@ __pycache__/
 /bots/build/
 /bots/dist
 /discord/
+bots/__init__.py
+discord_bots.egg-info
+bots/reminders.db

@@ -82,10 +82,11 @@ async def test_scan_apollo_events(monkeypatch):
     # get the bot file
     from bots import attbot
 
-    # since the real function has "target_channel = bot.get_channel(int(CHANNEL_ID))", we simulate that with the lambda function so it rturns the fake
-    # channel and guild objects we created
-    monkeypatch.setattr(attbot, "get_channel", lambda x: MockChannel())
-    monkeypatch.setattr(attbot, "get_guild", lambda x: MockGuild())
+    # since the real function is using the "bot" module, and the get_channel is a method of it "target_channel = bot.get_channel(int(CHANNEL_ID))"
+    # we simulate that with the lambda function so it returns the fake channel_id and guild_id objects we created. 
+    # NOTE-- in the real function, get_channel is a method of bot, NOT a function defined in attbot.py so, bot.get_channel()
+    monkeypatch.setattr(attbot.bot, "get_channel", lambda x: MockChannel())
+    monkeypatch.setattr(attbot.bot, "get_guild", lambda x: MockGuild())
 
     # then store the scanned and logged events by calling scan_apollo_events, which returns the mock channel and guild, and the guild members and 
     # channel.history (those are attributes of the mockchannel and mockguild objects), then mock messages are yielded, embed parsing runs, event_log
