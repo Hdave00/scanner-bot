@@ -317,6 +317,11 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
             member = member_lookup.get(normalized)
             if member:
                 resolved_attendees.append((member.id, member.display_name))
+            else:
+                print(f"[DEBUG] Failed to resolve: raw='{name}' normalized='{normalized}'")
+
+        # Ddebug line, print what the lookup table keys look like
+        print(f"[DEBUG] Sample lookup keys: {list(member_lookup.keys())[:10]}")
 
         resolved_declined = []
         for name in declined:
