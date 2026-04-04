@@ -749,7 +749,7 @@ async def hilf(interaction: discord.Interaction):
 
     embed.add_field(
         name="/leaderboard",
-        value="Shows this month's attendance leaderboard, based on unique events attended.",
+        value="Shows this month's attendance leaderboard, based on unique events attended. Shows a ranked summary leaderboard of accepted and declined for the same number of events given to the scan apollo events command",
         inline=False
     )
 
@@ -1457,7 +1457,7 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 # for slash commands using @bot.tree.command, the callback function must accept a discord.Interaction as the first argument, not ctx
 # wherever using ctx.send(), it should become interaction.response.send_message() or interaction.followup.send() depending on 
 # whether we're deferring the response.
-@bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined for the same number of events given to the scan apollo events command")
+@bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined")
 @app_commands.describe(limit="How many Apollo events to use (min: 8, max: 24)")
 async def leaderboard(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
 
