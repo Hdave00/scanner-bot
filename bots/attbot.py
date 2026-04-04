@@ -21,7 +21,7 @@ import asyncio
 import sqlite3
 
 
-from .utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
+from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
 __version__ = "1.9"
 
