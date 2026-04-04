@@ -1257,22 +1257,26 @@ async def coin(interaction: discord.Interaction, limit: app_commands.Range[int, 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
 @app_commands.describe(limit="How many Apollo events to summarize (min: 8, max: 24)")
 async def summary(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
-    
     """Summarizes user attendance for the last N Apollo events."""
 
     await interaction.response.defer(thinking=True)
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
-        await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
+        await interaction.followup.send("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
-    # Collect exactly N Apollo events (not just messages)
+    # Clear before scanning to avoid stale data contaminating results
+    event_log.clear()
+
     scanned_messages, logged = await scan_apollo_events(limit)
 
-    if len(event_log) < limit:
+    # Use a local snapshot immediately after scanning
+    recent_events = event_log[-limit:]
+
+    if len(recent_events) < limit:
         await interaction.followup.send(
-            f"Only {len(event_log)} Apollo events found (scanned {scanned_messages} messages).\n"
+            f"Only {len(recent_events)} Apollo events found (scanned {scanned_messages} messages).\n"
             f"Need at least {limit} events for a full summary.",
             ephemeral=True
         )
@@ -1288,32 +1292,28 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
     valid_ids = {m.id for m in valid_members}
     id_to_member = {m.id: m for m in valid_members}
 
-    # create a dictionary to store the number of responses, and also HOW MANY events are being considered (according to the limit), and append to the
-    # event log global list
     response_count = defaultdict(int)
-    recent_events = event_log[-limit:]
 
-    # iterate over each event within the given limit, then check within those events for accepted or declined, then sort them for each catergory per user_id 
     for event in recent_events:
         for category in ("accepted", "declined"):
             for user_id, _ in event.get(category, []):
-                # then if user has a valid, sort them, get the return count and append to response count
                 if user_id in valid_ids:
                     response_count[user_id] += 1
 
     low_responders = defaultdict(list)
+    threshold = limit // 2
 
-    threshold = limit // 2  # 50% of events (eg, 8 -> 4, 12 -> 6, 24 -> 12)
-
-    # 
     for user_id in valid_ids:
         count = response_count.get(user_id, 0)
-        if count <= threshold:   # 50% or less
+        if count <= threshold:
             member = id_to_member.get(user_id)
             if member:
                 low_responders[count].append(member)
 
-    lines = [f"**Low Attendance Summary (Last {limit} Apollo Events)**", f"_Showing users with {threshold} or fewer responses (50% or less)_\n"]
+    lines = [
+        f"**Low Attendance Summary (Last {limit} Apollo Events)**",
+        f"_Showing users with {threshold} or fewer responses (50% or less)_\n"
+    ]
 
     if not low_responders:
         lines.append(f"All active members responded to more than {threshold} events!")
@@ -1334,7 +1334,6 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
     else:
         await interaction.followup.send(message)
 
-    # Clear cache after generating summary
     event_log.clear()
     if 'attendance_log' in globals():
         attendance_log.clear()
