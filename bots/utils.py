@@ -45,10 +45,12 @@ def init_db(db_path=DB_PATH):
     # add a set path so maybe i can ensure the path exists?
     logging.info(f"Init DB on {DB_PATH}")
 
+    # make the directory by default
     os.makedirs(os.path.dirname(BASE_DIR), exist_ok=True)
 
     Path(db_path).touch(exist_ok=True)
     
+    # create connection, and create the the reminders table if it doesnt exist already
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("""

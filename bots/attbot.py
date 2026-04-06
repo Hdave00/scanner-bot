@@ -23,7 +23,7 @@ import sqlite3
 
 from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "1.9"
+__version__ = "2.0"
 
 # Configure logging
 logging.basicConfig(
@@ -49,6 +49,7 @@ def is_valid_snowflake(s):
     return bool(re.fullmatch(r"\d{17,20}", s))
 
 
+# channel id and snowflake check
 if not CHANNEL_ID or not is_valid_snowflake(str(CHANNEL_ID)):
 
     while True:
@@ -61,6 +62,7 @@ if not CHANNEL_ID or not is_valid_snowflake(str(CHANNEL_ID)):
         print("Invalid Channel ID format. Try again.")
 
 
+# guild/server id and snowflake check
 if not GUILD_ID or not is_valid_snowflake(GUILD_ID):
 
     while True:
@@ -93,14 +95,12 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 scheduled_reminders: dict[int, asyncio.Task] = {}
 reminders_loaded = False # prevents duplicate scheduling on reconnect
 
-# In-memory log: pseudo_id -> log entry
+# In-memory log: pseudo_id -> log entry (persistent memory not really required)
 attendance_log = {}
 
 # Holds data for all of  Apollo events
 event_log = []  # Populate this in /scan_apollo command
 
-# Holds data temporarily by scanning member activity
-member_data = []
 
 # already logged function that removes duplicates
 def already_logged(pseudo_id):
@@ -1161,6 +1161,7 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
     no_response = 0
 
     def extract_uid(entry):
+
         """Safely extract the 'uid' like value from an accepted/declined entry.
            Accepts tuples/lists like (uid, extra) or plain strings/ints."""
         
@@ -1262,7 +1263,8 @@ async def coin(interaction: discord.Interaction, limit: app_commands.Range[int, 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
 @app_commands.describe(limit="How many Apollo events to summarize (min: 8, max: 24)")
 async def summary(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
-    """Summarizes user attendance for the last N Apollo events."""
+
+    """ Summarizes user attendance for the last N Apollo events. Function calls 'scan_apollo_events' """
 
     await interaction.response.defer(thinking=True)
 
@@ -1271,14 +1273,16 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
         await interaction.followup.send("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
-    # Clear before scanning to avoid stale data contaminating results
+    # Clear before scanning to avoid stale data contaminating results (scan_apollo_events already calls event_log.clear() so this is redundant.)
     event_log.clear()
 
     scanned_messages, logged = await scan_apollo_events(limit)
 
-    # Use a local snapshot immediately after scanning
+    # Use a local snapshot immediately after scanning, to slice the list 
+    # take snapshot after the scan completes making sure recent_events = event_log[-limit:] only runs after await scan_apollo_events(limit) fully resolves
     recent_events = event_log[-limit:]
 
+    # if the recent events list is smaller than limit number of events, show how many "limit" events were scanned
     if len(recent_events) < limit:
         await interaction.followup.send(
             f"Only {len(recent_events)} Apollo events found (scanned {scanned_messages} messages).\n"
@@ -1287,9 +1291,12 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
         )
         return
 
+    # set the guild variable, and exclude roles from discord that we dont need to log attendance reactions for
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserves", "External Unit Rep"}
-
+    
+    # save the valid member's roles using list iteration, and check sure that they are not in the the excluded_roles list
+    # then create valid_ids and map those ids to members
     valid_members = [
         m for m in guild.members
         if not m.bot and not any(role.name in excluded_roles for role in m.roles)
@@ -1297,29 +1304,35 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
     valid_ids = {m.id for m in valid_members}
     id_to_member = {m.id: m for m in valid_members}
 
+    # save the number of responses in a dict, with k=member and v=event
     response_count = defaultdict(int)
 
+    # then for each event, from the recent events scanned, for each category in the events, for each user_id in either category,
+    # if the user's id is valid, increment the response count dict
     for event in recent_events:
         for category in ("accepted", "declined"):
             for user_id, _ in event.get(category, []):
                 if user_id in valid_ids:
                     response_count[user_id] += 1
 
+    # create a dict for low responders with the user id and event id, limit it by a threshold of 2 as remainder (50%)
     low_responders = defaultdict(list)
     threshold = limit // 2
 
+    # iterate over the valid ids and keep track of the user's response count, if its lower than 50%, save that user id and append to low_responders dict
     for user_id in valid_ids:
         count = response_count.get(user_id, 0)
         if count <= threshold:
             member = id_to_member.get(user_id)
             if member:
                 low_responders[count].append(member)
-
+    # send message detail
     lines = [
         f"**Low Attendance Summary (Last {limit} Apollo Events)**",
         f"_Showing users with {threshold} or fewer responses (50% or less)_\n"
     ]
 
+    # check if no low responders and append to lines list appropriately, else concatonate and get low responders, then append those to lines
     if not low_responders:
         lines.append(f"All active members responded to more than {threshold} events!")
     else:
@@ -1332,6 +1345,7 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
 
     lines.append(f"\n_Scanned {scanned_messages} messages to find {limit} Apollo events. Logged {logged} participant responses._")
 
+    # send the message by joining the lines list, send them chunk by chunk due to char limit
     message = "\n".join(lines)
     if len(message) > 1900:
         for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
