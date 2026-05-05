@@ -63,6 +63,17 @@ def init_db(db_path=DB_PATH):
             dm INTEGER NOT NULL
         )
     """)
+
+    # second table for quotes
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS quotes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            username TEXT NULL,
+            quote TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
     logging.info(f"Init DB successfull on {DB_PATH}")
@@ -145,3 +156,50 @@ def delete_reminder(reminder_id: int, user_id: int, db_path=DB_PATH):
     conn.commit()
     conn.close()
     return deleted > 0
+
+
+# TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
+def add_quote(user_id: int, username: str, quote: str, db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # add the time the quote was created, insert into database using sql command and give it a u_id
+    created_at = datetime.now(timezone.utc).isoformat()
+    cursor.execute(
+        "INSERT INTO quotes (user_id, username, quote, created_at) VALUES (?, ?, ?, ?)",
+        (user_id, username, quote, created_at)
+    )
+
+    quote_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return quote_id
+
+
+def get_random_quote(db_path=DB_PATH):
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, user_id, username, quote, created_at FROM quotes ORDER BY RANDOM() LIMIT 1"
+    )   # get a random quote, select a random id, get its metadata, and get 1 only
+
+    row = cursor.fetchone()
+    cursor.close()
+    return row  # auto returns None if empty
+
+
+def get_random_quote_by_user(user_id: int, db_path=DB_PATH):
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn. cursor()
+
+    cursor.execute("SELECT id, user_id, usenrame, quote, created_at FROM quotes WHERE id = ? ORDER BY RANDOM() LIMIT 1",
+                    (user_id,)
+    )
+
+    row = cursor.fetchone()
+    cursor.close()
+    return row  # None if user has no quotes
+
+

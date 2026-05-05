@@ -386,6 +386,9 @@ def log_attendance(user_id, username, event_id, response="accepted"):
 
 
 
+# TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
+
+
 """
 --- NOTE --- 
 This chunk of comments was for the async payload function, doesnt work for Apollo embeds but DOES if we want to use similar functionality in the future
