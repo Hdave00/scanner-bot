@@ -20,9 +20,9 @@ import asyncio
 import sqlite3
 
 try:
-    from bots.utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
+    from bots.utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote
 except ModuleNotFoundError:
-    from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
+    from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote
 
 __version__ = "2.2"
 
