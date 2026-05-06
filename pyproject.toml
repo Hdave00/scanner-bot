@@ -2,5 +2,8 @@
 name = "discord-bots"
 version = "0.1.0"
 
+[tool.coverage.run]
+omit = ["bots/botscanner.py"]
+
 [tool.setuptools.packages.find]
 where = ["."]
