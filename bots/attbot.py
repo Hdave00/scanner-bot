@@ -24,7 +24,7 @@ try:
 except ModuleNotFoundError:
     from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders
 
-__version__ = "2.0"
+__version__ = "2.2"
 
 # Configure logging
 logging.basicConfig(
@@ -393,8 +393,6 @@ def log_attendance(user_id, username, event_id, response="accepted"):
         }
 
 
-# TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
-
 
 """
 --- NOTE --- 
@@ -442,6 +440,104 @@ async def dump_attendance(ctx):
     """ Command dumps the cached global dictionary contents. """
 
     await ctx.send(f"Current entries: {len(attendance_log)}")
+
+
+# TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
+@bot.tree.command(name="quote", description="Get a random quote. Pass a user to get one from them specifically.")
+@app_commands.describe(user="Optional: get a random quote from a specific user")
+async def quote(interaction: Interaction, user: discord.Member = None):
+
+    # first, see if a user arg is given, if yes then only gives quotes from that user
+    if user:
+        row = get_random_quote_by_user(user.id)
+        if not row:
+            await interaction.response.send_message(
+                f"{user.display_name} has no quotes yet.", ephemeral=True
+            )
+            return
+    else:   # just give a random quote
+        row = get_random_quote()
+        if not row:
+            await interaction.response.send_message(
+            f"No quotes in the database yet.", ephemeral=True
+            )
+            return
+
+    # set the data fields of the quote object in db as the row (duh), and extract the year, in iso format, then send the quote as an fstring with deets
+    _,_, username, quote_text, created_at = row
+    year = parser.isoparse(created_at).strftime("%Y")
+    await interaction.response.send_message(f'"{quote_text}" - {username}, {year}')
+
+
+@bot.tree.command(name="addquote", description="Add a quote to the database.")
+@app_commands.describe(quote="The quote to add")
+async def addquote(interaction: Interaction, quote: str):
+
+    # call add_quote from utils.py with user id and display name (nickname) and the related quote in database, then send an epeher msg about added quote
+    add_quote(interaction.user.id, interaction.user.display_name, quote)
+    await interaction.response.send_message(f'Added: "{quote}"- {interaction.user.display_name}', ephemeral=True
+    )
+
+
+@bot.tree.command(name="deletequote", description="Delete one of your quotes.")
+async def deletequote(interaction: Interaction):
+
+    # We have 3 main points/procedures for deleting a quote and we want to make sure we only show the user who types the command's quotes
+    # then we need a way to show and select the quotes to the user,
+    # then we need to actually delete the quote, so we split it into 3 tasks...
+
+    # 1 Fetch only the calling user's quotes
+    rows = get_user_quotes(interaction.user.id)
+    if not rows:
+        await interaction.response.send_message("You have no quotes to delete.", ephemeral=True)
+        return
+
+    # 2 Build a dropdown like myreminders functionality
+    # build a list of options, then for each row select the quote from the list of options,
+    options = []
+    for r in rows:
+        quote_id, _, _, quote_text, created_at = r
+        year = parser.isoparse(created_at).strftime("%Y")
+        label = f"{quote_text[:75]} ({year})"
+        options.append(discord.SelectOption(label=label, value=str(quote_id)))
+
+    # then select from the option to choose what to delete
+    select = Select(
+        placeholder="Choose a quote to delete...",
+        options=options,
+        min_values=1,
+        max_values=1,
+    )
+
+    # 3  the callback fires when user picks from dropdown
+    # helper function to select the callback
+    async def select_callback(interaction2: Interaction):
+
+        # set the quote_id to delete based on the id at index 0, mark it as success calling the delete_quote function from utils,
+        quote_id = int(select.values[0])
+        success = delete_quote(interaction2.user.id, quote_id)
+
+        # if the delete_quote func doesnt throw any errors, we show the user that the quote was deleted,
+        if success:
+            await interaction2.response.edit_message(
+                content="Quote deleted.", view=None
+            )
+        else:   # we show a message to the user that the quote could not be deleted
+            await interaction2.response.edit_message(
+                content="Could not delete that quote - it may already be gone, or the bot ran into an error.",
+                view=None
+            )
+
+    # call the helper function using the select variable, create View() class to show the UI, acces the add_item method of the view to show in
+    # that UI, our helper function
+    select.callback = select_callback
+    view = View()
+    view.add_item(select)
+
+    # if all goes well, send the message to the user about which quote to delete
+    await interaction.response.send_message(
+        "Select a quote to delete:", view=view, ephemeral=True
+    )
 
 
 class ReminderModal(discord.ui.Modal):

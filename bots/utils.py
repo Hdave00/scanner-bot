@@ -176,6 +176,18 @@ def add_quote(user_id: int, username: str, quote: str, db_path=DB_PATH):
     return quote_id
 
 
+def delete_quote(user_id: int, quote_id: int, db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "DELETE FROM quotes WHERE id = ? AND user_id = ?", (quote_id, user_id))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted > 0
+
+
 def get_random_quote(db_path=DB_PATH):
 
     conn = sqlite3.connect(db_path)
@@ -202,4 +214,19 @@ def get_random_quote_by_user(user_id: int, db_path=DB_PATH):
     cursor.close()
     return row  # None if user has no quotes
 
+
+def get_user_quotes(user_id: int, db_path=DB_PATH):
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # get the specific user's quotes, used in indexing and deleting/modifying a quote
+    cursor.execute(
+        "SELECT id, user_id, username, quote, created_at FROM quotes WHERE user_id = ?",
+        (user_id,)
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
