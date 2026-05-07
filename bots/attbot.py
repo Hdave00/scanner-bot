@@ -920,6 +920,24 @@ async def hilf(interaction: discord.Interaction):
         inline=False
     )
 
+    embed.add_field(
+        name="/addquote",
+        value="Add a new quote to the database.",
+        inline=False
+    )
+
+    embed.add_field(
+        name="/deletequote",
+        value="Delete an already existing quote you have from the database.",
+        inline=False
+    )
+
+    embed.add_field(
+        name="/quote",
+        value="Get a random quote. Pass a user to get one from them specifically.",
+        inline=False
+    )
+
     await interaction.followup.send(embed=embed)
 
 
