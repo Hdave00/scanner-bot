@@ -71,7 +71,7 @@ def test_get_random_quote_by_user_ignores_other_users(tmp_path):
     add_quote(302, "Mooses", "Check left flank.", db_path)
 
     row = get_random_quote_by_user(302, db_path)
-    assert row[2] == "Mooses"  # should never return Alice's quote
+    assert row[2] == "Mooses"  # should never return Hastings's quote
 
 
 def test_delete_quote_prevents_cross_user_deletion(tmp_path):
