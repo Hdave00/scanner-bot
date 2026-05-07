@@ -1,0 +1,51 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov
+          pip install diff-cover
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=bots --cov-report=term-missing --cov-report=xml:coverage.xml --cov-config=pyproject.toml
+
+      - name: Build changed-files coverage report (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --markdown-report diff-coverage.md
+
+      - name: Comment changed-files coverage on PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: changed-files-coverage
+          path: diff-coverage.md

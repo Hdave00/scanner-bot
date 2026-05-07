@@ -3,7 +3,6 @@ This is a unique discord bot that reverse-engineers the closed source event and 
     closed ecosystem extraction. It scans the activity of other bots in the server by creating a websocket with the hosts, using Discord's Gateway API.
 """
 
-
 import discord
 import os
 from dotenv import load_dotenv
@@ -17,12 +16,13 @@ import re
 import random
 import secrets
 import logging
-import asyncio 
+import asyncio
 import sqlite3
 
-
-from utils import (init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, 
-                   add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote)
+try:
+    from bots.utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote
+except ModuleNotFoundError:
+    from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote
 
 __version__ = "2.2"
 
@@ -37,17 +37,32 @@ logging.info(f"Starting scanner-bot... v{__version__}")
 # Load env variables
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
-GUILD_ID = os.getenv("GUILD_ID")
+CHANNEL_ID_ENV_VAR = "CHANNEL_ID"
+GUILD_ID_ENV_VAR = "GUILD_ID"
+
+
+def _get_required_int_env(name: str) -> int:
+    value = os.getenv(name)
+    if value is None:
+        raise ValueError(f"Required environment variable {name} is not set")
+
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"Environment variable {name} must be an integer") from exc
+
+
+CHANNEL_ID = _get_required_int_env(CHANNEL_ID_ENV_VAR)
+GUILD_ID = _get_required_int_env(GUILD_ID_ENV_VAR)
 
 if not TOKEN:
     TOKEN = input("Enter your Discord Bot Token: ")
 
 
 def is_valid_snowflake(s):
-    """Returns True if input string is a valid Discord snowflake ID."""
+    """Returns True if the input string is a valid Discord snowflake ID."""
 
-    return bool(re.fullmatch(r"\d{17,20}", s))
+    return bool(re.fullmatch(r"\d{17,20}", str(s)))
 
 
 # channel id and snowflake check
@@ -62,7 +77,6 @@ if not CHANNEL_ID or not is_valid_snowflake(str(CHANNEL_ID)):
 
         print("Invalid Channel ID format. Try again.")
 
-
 # guild/server id and snowflake check
 if not GUILD_ID or not is_valid_snowflake(GUILD_ID):
 
@@ -75,8 +89,7 @@ if not GUILD_ID or not is_valid_snowflake(GUILD_ID):
 
         print("Invalid Guild ID format. Try again.")
 
-
-# Initialize the discord intent object and set most needed paramters from the docs of "discord" to True
+# Initialize the discord intent object and set most necessary parameters from the docs of "discord" to True
 intents = discord.Intents.default()
 
 # Required for commands and reading messages
@@ -94,7 +107,7 @@ intents.messages = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 scheduled_reminders: dict[int, asyncio.Task] = {}
-reminders_loaded = False # prevents duplicate scheduling on reconnect
+reminders_loaded = False  # prevents duplicate scheduling on reconnection
 
 # In-memory log: pseudo_id -> log entry (persistent memory not really required)
 attendance_log = {}
@@ -109,16 +122,15 @@ def already_logged(pseudo_id):
 
 
 def normalize_name(name: str) -> str:
-    """ Using regex, we normalise scanned names to pass into other functions. """
+    """ Using regex, we normalize scanned names to pass into other functions. """
 
     name = name.lower()
     name = re.sub(r"[^\w\s]", "", name)  # remove punctuation
-    name = re.sub(r"\s+", " ", name)     # normalize whitespace
+    name = re.sub(r"\s+", " ", name)  # normalize whitespace
     return name.strip()
 
 
 def schedule_reminder(reminder_id, user_id, channel_id, message, remind_time, dm):
-
     """
         Scheduling a reminder to create the reminder task, instead of insertion and deletion on runtime, that creates issues with tables being deleted
         in the db but the actual even still active. 
@@ -136,7 +148,7 @@ def schedule_reminder(reminder_id, user_id, channel_id, message, remind_time, dm
 
 @bot.event
 async def on_ready():
-    """Event syncing function to sync all available commands to deployment environment."""
+    """Event syncing function to sync all available commands to the deployment environment."""
 
     global reminders_loaded
 
@@ -149,7 +161,7 @@ async def on_ready():
     # call the init function to get the db
     init_db()
 
-    # Only load reminders ONCE per process lifetime, if reminders are not loaded, then for each reminder in the get_reminders utils functions,
+    # Only load reminders ONCE per process lifetime if reminders are not loaded, then for each reminder in the get_reminders utils functions,
     # get that reminder and schedule it, set loaded reminders to True
     if not reminders_loaded:
         for r in get_reminders():
@@ -168,12 +180,10 @@ async def on_ready():
         logging.error(f"Error syncing commands: {e}")
 
 
-
 async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, dm):
+    """ function gets a reminder task in iso format and check if there is a dm to be sent to the user to confirm or create a message """
 
-    """ function gets reminder task in iso format and check if there is a dm to be sent to the user to confirm or create a message """
-
-    # We want to try, to try check if there is an existing reminder task in memory
+    # We want to try to try check if there is an existing reminder task in memory
     try:
         try:
             if isinstance(remind_time, str):
@@ -187,7 +197,7 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
             logging.error(f"Failed to parse remind_time for reminder {reminder_id}: {e}")
             return
 
-        # Accurate long-term waiting, using this while loop, we continuosly check for the time of the reminder to be sent, by finding delta between
+        # Accurate long-term waiting, using this while loop, we continuously check for the time of the reminder to be sent, by finding delta between
         # time of reminder, and time now.
         while True:
             now = datetime.now(timezone.utc)
@@ -233,9 +243,7 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
         scheduled_reminders.pop(reminder_id, None)
 
 
-
 async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
-
     """
     Scans the channel history to collect exactly `limit` Apollo events.
     Returns a tuple: (messages_scanned, attendees_logged)
@@ -249,12 +257,12 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
     if 'attendance_log' in globals():
         attendance_log.clear()
 
-    # get the channel id as a method of the bot, declared globally which is an extension module to facilitate creation of bot commands. Therefore, 
+    # get the channel id as a method of the bot, declared globally, which is an extension module to facilitate creation of bot commands. Therefore,
     # get_channel(...) is a method of the bot module.
     target_channel = bot.get_channel(int(CHANNEL_ID))
     if not target_channel:
         return (0, 0)
-    
+
     # set guild variable as int 
     guild = bot.get_guild(int(GUILD_ID))
     if not guild:
@@ -276,7 +284,7 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
         scanned_messages += 1
 
         # Only count Apollo bot messages (NOTE this can be changed with a simple variable to store the bot string to make it more robust and specific,
-        # but its of no real use to me)
+        # but it's of no real use to me)
         if "Apollo" not in msg.author.name:
             continue
 
@@ -309,9 +317,9 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
                         if name:
                             attendees.append(name)
 
-        # Normalize names ans store them in a list, previously i was using display names, and i thought apollo did that as well. 
-        # Now, build member lookup from the actualy guild id set earlier in this function, resolve embed names to real member.id,
-        # and now hopefully normalised strings are not stored as IDs
+        # Normalize names and store them in a list, previously I was using display names, and I thought apollo did that as well. 
+        # Now, build member lookup from the actual guild id set earlier in this function, resolve embed names to real member.id,
+        # and now hopefully normalized strings are not stored as IDs
         resolved_attendees = []
         for name in attendees:
             normalized = normalize_name(name)
@@ -359,9 +367,8 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
 
 
 def log_attendance(user_id, username, event_id, response="accepted"):
-
     """
-    Logs all users who have accepted. Ie, this function allows you to target any specific embed string and capture that response as a formatted
+    Logs all users who have accepted. I.e., this function allows you to target any specific embed string and capture that response as a formatted
         data structure.
         - Also useful for logging users/reactions without filtering in nested functions, by targeting specific embed parameters of a reactable button.
     """
@@ -373,7 +380,7 @@ def log_attendance(user_id, username, event_id, response="accepted"):
     pseudo_id = (f"{event_id}-{user_id_str}"
                  if response == "accepted"
                  else f"{event_id}-{user_id_str}-declined"
-    )
+                 )
 
     # if the id is not in the attendance log global dict already, then append it and its attributes
     if pseudo_id not in attendance_log:
@@ -421,16 +428,15 @@ async def on_raw_reaction_add(payload):
 -----------------------------------------------------------------------------------------------------------------------------------------------------
 """
 
-# TODO: Set up a command like /post_summary to auto-post attendance summaries at the end of the month in a formatted embed. 
+
+# TODO: Set up a command like /post_summary to auto-post attendance summaries at the end of the month in a formatted embed.
 # TODO: Improve /leaderboard by including the event name (if found in embed.title or embed.descriptio) not applicable for our clan (events not named)
 # TODO: Command that shows attendance for each member, filterable by member, rank, and timeframe
-
 
 
 # debug attendance log
 @bot.command()
 async def dump_attendance(ctx):
-
     """ Command dumps the cached global dictionary contents. """
 
     await ctx.send(f"Current entries: {len(attendance_log)}")
@@ -440,8 +446,8 @@ async def dump_attendance(ctx):
 @bot.tree.command(name="quote", description="Get a random quote. Pass a user to get one from them specifically.")
 @app_commands.describe(user="Optional: get a random quote from a specific user")
 async def quote(interaction: Interaction, user: discord.Member = None):
-    
-    # first, see if a user arg is given, if yes then only gives quotes from that user
+
+    # first, see if a user arg is given, if yes, then only gives quotes from that user
     if user:
         row = get_random_quote_by_user(user.id)
         if not row:
@@ -456,8 +462,8 @@ async def quote(interaction: Interaction, user: discord.Member = None):
             f"No quotes in the database yet.", ephemeral=True
             )
             return
-    
-    # set the data fields of the quote object in db as the row (duh), and extract the year, in iso format, then send the quote as an fstring with deets
+
+    # set the data fields of the quote object in db as the row (duh), and extract the year, in iso format, then send the quote as a fstring with deets
     _,_, username, quote_text, created_at = row
     year = parser.isoparse(created_at).strftime("%Y")
     await interaction.response.send_message(f'"{quote_text}" - {username}, {year}')
@@ -467,7 +473,7 @@ async def quote(interaction: Interaction, user: discord.Member = None):
 @app_commands.describe(quote="The quote to add")
 async def addquote(interaction: Interaction, quote: str):
 
-    # call add_quote from utils.py with user id and display name (nickname) and the related quote in database, then send an epeher msg about added quote
+    # call add_quote from utils.py with user id and display name (nickname) and the related quote in database, then send an ephemeral msg about added quote
     add_quote(interaction.user.id, interaction.user.display_name, quote)
     await interaction.response.send_message(f'Added: "{quote}"- {interaction.user.display_name}', ephemeral=True
     )
@@ -476,8 +482,8 @@ async def addquote(interaction: Interaction, quote: str):
 @bot.tree.command(name="deletequote", description="Delete one of your quotes.")
 async def deletequote(interaction: Interaction):
 
-    # We have 3 main points/procedures for deleting a quote and we want to make sure we only show the user who types the command's quotes
-    # then we need a way to show and select the quotes to the user, 
+    # We have 3 main points/procedures for deleting a quote, and we want to make sure we only show the user who types the command's quotes
+    # then we need a way to show and select the quotes to the user,
     # then we need to actually delete the quote, so we split it into 3 tasks...
 
     # 1 Fetch only the calling user's quotes
@@ -486,7 +492,7 @@ async def deletequote(interaction: Interaction):
         await interaction.response.send_message("You have no quotes to delete.", ephemeral=True)
         return
 
-    # 2 Build a dropdown like myreminders functionality
+    # 2 Build a dropdown like my_reminders functionality
     # build a list of options, then for each row select the quote from the list of options,
     options = []
     for r in rows:
@@ -503,7 +509,7 @@ async def deletequote(interaction: Interaction):
         max_values=1,
     )
 
-    # 3  the callback fires when user picks from dropdown
+    # 3 the callback fires when user picks from dropdown
     # helper function to select the callback
     async def select_callback(interaction2: Interaction):
 
@@ -511,7 +517,7 @@ async def deletequote(interaction: Interaction):
         quote_id = int(select.values[0])
         success = delete_quote(interaction2.user.id, quote_id)
 
-        # if the delete_quote func doesnt throw any errors, we show the user that the quote was deleted, 
+        # if the delete_quote func doesn't throw any errors, we show the user that the quote was deleted,
         if success:
             await interaction2.response.edit_message(
                 content="Quote deleted.", view=None
@@ -522,7 +528,7 @@ async def deletequote(interaction: Interaction):
                 view=None
             )
 
-    # call the helper function using the select variable, create View() class to show the UI, acces the add_item method of the view to show in
+    # call the helper function using the select variable, create View() class to show the UI, access the add_item method of the view to show in
     # that UI, our helper function
     select.callback = select_callback
     view = View()
@@ -535,7 +541,6 @@ async def deletequote(interaction: Interaction):
 
 
 class ReminderModal(discord.ui.Modal):
-
     """ reminder modal class to forego any kind of user input errors, let them choose within given parameters and not free type the time.
         Method allows users to set a message, date and dm type via modals. """
 
@@ -544,7 +549,7 @@ class ReminderModal(discord.ui.Modal):
         super().__init__(title="Create a Reminder")
 
         # Define text inputs, use discord's textstyle
-        # Define placeholder message for each field ie, message, date and whether to DM or not.
+        # Define placeholder message for each field i.e., message, date and whether to DM or not.
 
         self.message = discord.ui.TextInput(
             label="Reminder Message",
@@ -572,9 +577,9 @@ class ReminderModal(discord.ui.Modal):
 
     # Flexible date parser, make it a static method, as a helper function
     # I was passing the TextInput object to the parser instead of the user-entered string, map the input_str to datetime using -> and handle if it is None
-    # from the get go
+    # from the get-go
     @staticmethod
-    def parse_datetime(input_str: str) -> datetime | None: 
+    def parse_datetime(input_str: str) -> datetime | None:
         """Try parsing a date string in multiple formats."""
 
         formats = [
@@ -600,17 +605,16 @@ class ReminderModal(discord.ui.Modal):
             return None
 
         if dt.tzinfo is None:
-
             # If there is no tzinfo on parsed result, assume the user meant UTC
             return dt.replace(tzinfo=timezone.utc)
-        
+
         # If it had an explicit timezone, convert it to UTC
         return dt.astimezone(timezone.utc)
 
     # nested helper function to check the time format string on submit
     async def on_submit(self, interaction: discord.Interaction):
 
-        # try saving the time requested by user using modals to the datatbase and parse reminder time using the static method/helper function
+        # try saving the time requested by user using modals to the database and parse reminder time using the static method/helper function
         # USE `.value` to access what the user typed
 
         date_text = self.date.value.strip()
@@ -621,17 +625,17 @@ class ReminderModal(discord.ui.Modal):
         remind_time = self.parse_datetime(date_text)
         if remind_time is None:
             await interaction.response.send_message(
-                "Invalid date format.\nTry `YYYY-MM-DD HH:MM` (UTC) or " 
+                "Invalid date format.\nTry `YYYY-MM-DD HH:MM` (UTC) or "
                 "include a timezone (e.g. `2025-10-05 14:30+00:00`).",
                 ephemeral=True,
             )
             return
-        
+
         # User can't be trusted, enforce future time and not some arbitrary string that could be in the past
         # optional: enforce future time
         now = datetime.now(timezone.utc)
         if remind_time <= now:
-            await interaction.response.send_message("Please choose a time in the future (UTC).",ephemeral=True,)
+            await interaction.response.send_message("Please choose a time in the future (UTC).", ephemeral=True, )
             return
 
         # setting the dm preference
@@ -647,7 +651,7 @@ class ReminderModal(discord.ui.Modal):
             await interaction.response.send_message("You already have an active reminder today.", ephemeral=True)
             return
 
-        # store timezone-aware datetime, only convert to string here if DB expects it (which it doesnt really atm), then get the ID of the reminder
+        # store timezone-aware datetime, only convert to string here if DB expects it (which it doesn't really atm), then get the ID of the reminder
         # we have just inserted 
         reminder_id = add_reminder(
             interaction.user.id,
@@ -675,13 +679,11 @@ class ReminderModal(discord.ui.Modal):
         )
 
 
-
 @bot.tree.command(name="remindme", description="Set a reminder (once per day).")
 async def remindme(interaction: discord.Interaction):
     """ Open the reminder creation modal. """
 
     await interaction.response.send_modal(ReminderModal())
-
 
 
 # TODO maybe not just delete the whole task directly from db, but read asyncio's docs to remove/delete the reminder itself. Probably will save a bit
@@ -690,7 +692,7 @@ async def remindme(interaction: discord.Interaction):
 async def myreminders(interaction: Interaction):
     """ command to list the user's reminders and cancel them before they go off, to make a new one """
 
-    # Cancel a reminder, if the cancel id we set matches the id that we saved in the delete_reminder function in utils.py
+    # Cancel a reminder if the cancel id we set matches the id that we saved in the delete_reminder function in utils.py
     reminders = get_user_reminders(interaction.user.id)
     if not reminders:
         await interaction.response.send_message("You have no active reminders.", ephemeral=True)
@@ -712,22 +714,22 @@ async def myreminders(interaction: Interaction):
         max_values=1,
     )
 
-    # NOTE this is deprecated because i dont want to use /myreminders cancel_id:<id> as its messy for the user
+    # NOTE this is deprecated because i don't want to use /myreminders cancel_id:<id> as it's messy for the user
     """ if cancel_id is not None:
             delete_reminder(cancel_id)
             await interaction.response.send_message(f"Reminder {cancel_id} canceled.", ephemeral=True)
             return
     """
 
-    # helper function for quick call to delete a reminder within the myreminder command itself 
+    # helper function for quick call to delete a reminder within the remainder command itself
     async def select_callback(interaction2: Interaction):
 
         reminder_id = int(select.values[0])
 
-        # make sure ther eis afallbakc, if no issues or if indeed issues, let the user know.
+        # make sure there is fallback, if no issues or if indeed issues, let the user know.
         success = delete_reminder(reminder_id, interaction2.user.id)
         if success:
-             # Cancel the running asyncio task
+            # Cancel the running asyncio task
             task = scheduled_reminders.pop(reminder_id, None)
             if task:
                 task.cancel()
@@ -747,19 +749,18 @@ async def myreminders(interaction: Interaction):
     view = View()
     view.add_item(select)
 
-    await interaction.response.send_message("Here are your active reminders. Select it to cancel:",view=view,ephemeral=True)
-
+    await interaction.response.send_message("Here are your active reminders. Select it to cancel:", view=view,
+                                            ephemeral=True)
 
 
 # This will print embed descriptions so we can see exactly what text is there (for reverse engineering websocket requests of other bots)
 @bot.tree.command(name="show_apollo_embeds", description="Show Apollo embed descriptions.")
 @app_commands.describe(limit="Number of messages to scan (default 50)")
 async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
-
-    """ 
-    This command allows you to do the first 'reverse engineering' part ie, shows ALL aspects of an apollo embed for an event or anything else,
+    """
+    This command allows you to do the first 'reverse engineering' part i.e., shows ALL aspects of an apollo embed for an event or anything else 
         that the bot has 'posted' in any channel. 
-        - Can be adapted for any bot or embed, just change this `if "Apollo" in msg.author.name:` bit, from 'Apollo' to whichever user or bot you want.
+        - Can be adapted for any bot or embed, change this `if "Apollo" in msg.author.name:` bit, from 'Apollo' to whichever user or bot you want.
     """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
@@ -782,12 +783,11 @@ async def show_apollo_embeds(interaction: discord.Interaction, limit: int = 50):
         await interaction.response.send_message(f"Found {found} Apollo messages.", ephemeral=True)
 
 
-# lets list recent messages and their authors
+# let's list recent messages and their authors
 @bot.tree.command(name="recent_authors", description="Show recent authors from the channel.")
 @app_commands.describe(limit="Number of messages to scan (default 20)")
 async def recent_authors(interaction: discord.Interaction, limit: int = 20):
-
-    """ Command that lets you scan the members/users who have made message/post in the desired channel, and show you who they are."""
+    """ Command that lets you scan the members/users who have made message/post in the desired channel and show you who they are."""
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
@@ -806,11 +806,10 @@ async def recent_authors(interaction: discord.Interaction, limit: int = 20):
     )
 
 
-
-@bot.tree.command(name="clear_cache", description="Clears all cached event attendance data scanned from Apollo to re-run data sensitive commands.")
+@bot.tree.command(name="clear_cache",
+                  description="Clears all cached event attendance data scanned from Apollo to re-run data sensitive commands.")
 async def clear_cache(interaction: discord.Interaction):
-
-    """ Clears the bots logs and cache to re run data sensitive commands """
+    """ Clears the bots logs and cache to re-run data-sensitive commands """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
@@ -829,7 +828,6 @@ async def clear_cache(interaction: discord.Interaction):
 
 @bot.tree.command(name="hilf", description="Show all available commands and their usage.")
 async def hilf(interaction: discord.Interaction):
-
     """ Help command to see all available commands, as embeds to stay within message limits. """
 
     await interaction.response.defer()  # defer in case it takes a moment
@@ -956,10 +954,10 @@ async def staff_meeting_notes(interaction: discord.Interaction):
         await interaction.followup.send(f"Error: An unexpected error occurred: {str(e)}")
 
 
-@bot.tree.command(name="debug_apollo", description="Scan recent messages for Apollo embeds and show raw fields for debugging.")
+@bot.tree.command(name="debug_apollo",
+                  description="Scan recent messages for Apollo embeds and show raw fields for debugging.")
 @app_commands.describe(limit="How many recent messages to scan (default 50)")
 async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
-
     """ Debugging function that shows any Apollo message and embed if found. """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
@@ -1011,13 +1009,13 @@ async def debug_apollo(interaction: discord.Interaction, limit: int = 50):
         await interaction.followup.send(chunk)
 
 
-@bot.tree.command(name="debug_duplicates", description="Check for inconsistent (duplicate-looking) usernames in attendance log.")
+@bot.tree.command(name="debug_duplicates",
+                  description="Check for inconsistent (duplicate-looking) usernames in attendance log.")
 async def debug_duplicates(interaction: discord.Interaction):
-
-    """ 
+    """
     Checks global dict 'attendance_log' by readding them into a tmep dict 'seen' to prevent users being accounted for 2x.
         - This is due to the messy nature of the function and how it interacts with the 'normalize_name' function.
-        - The normalized names are passed to the temp list (by called the normalized_name function) and outputs a message in discord accordingly.
+        - The normalized names are passed to the temp list (by calling the normalized_name function) and outputs a message in discord accordingly.
     """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
@@ -1035,7 +1033,7 @@ async def debug_duplicates(interaction: discord.Interaction):
     duplicates = {k: v for k, v in seen.items() if len(v) > 1}
 
     # Defer in case it takes time
-    await interaction.response.defer(thingking=True)
+    await interaction.response.defer(thinking=True)
 
     if not duplicates:
         await interaction.followup.send("No username inconsistencies found.")
@@ -1043,10 +1041,10 @@ async def debug_duplicates(interaction: discord.Interaction):
         lines = ["Inconsistent usernames found:"]
         for k, versions in duplicates.items():
             lines.append(f"{k}: {', '.join(versions)}")
-        
+
         message = "\n".join(lines)
         if len(message) > 1900:
-            for chunk in [message[i:i+1900] for i in range(0, len(message), 1900)]:
+            for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
                 await interaction.followup.send(chunk)
         else:
             await interaction.followup.send(message)
@@ -1055,30 +1053,28 @@ async def debug_duplicates(interaction: discord.Interaction):
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
 async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
-
-    """ 
+    """
     The bot command that calls the 'scan_apollo_events' function to scan apollo-bot embeds and output the reactions and/or
         reactions thereto.
     """
-    
+
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
         await interaction.response.send_message("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
-
     await interaction.response.defer(thinking=True)
 
     scanned, logged = await scan_apollo_events(limit)
     await interaction.followup.send(
-    f"Scanned {scanned} messages, found {len(event_log)} Apollo events, logged {logged} attendees (target: {limit} events)."
-)
+        f"Scanned {scanned} messages, found {len(event_log)} Apollo events, logged {logged} attendees (target: {limit} events)."
+    )
 
 
-# -----  NOTE  ----- 
-    # This has been "commented out" as it is legacy now (v1.0) This command didnt call the 'scan_apollo_events' function but instead,
-    # did everything in one bot command. I mainly did it for prototyping the "reverse engineering" bit and its kinda useful if you want to have
-    # a lightweight embed extraction function built directly into a bot command, and not use it anywhere else
+# ----- NOTE ----- 
+# This has been "commented out" as it is legacy now (v1.0) This command didn't call the 'scan_apollo_events' function but instead,
+# did everything in one bot command. I mainly did it for prototyping the "reverse engineering" bit and it's kinda useful if you want to have
+# a lightweight embed extraction function built directly into a bot command and not use it anywhere else
 """
 @bot.tree.command(name="scan_apollo", description="Scan Apollo event embeds and log attendance.")
 @app_commands.describe(limit="Number of messages to scan (default 18, max 100)")
@@ -1210,11 +1206,12 @@ async def scan_apollo(interaction: discord.Interaction, limit: int = 18):
     )
 """
 
+
 @bot.tree.command(name="check_member", description="Show attendance data about a single member.")
 @app_commands.describe(user="The member to check", limit="Limit of how many events to check for. (default 8, max 24)")
-async def check_member(interaction: discord.Interaction, user: discord.Member, limit: app_commands.Range[int, 1, 24] = 8):
-
-    """ Function allows to check an active members's 'stats' and filter by name/squad/rank """
+async def check_member(interaction: discord.Interaction, user: discord.Member,
+                       limit: app_commands.Range[int, 1, 24] = 8):
+    """ Function allows checking an active member's 'stats' and filter by name/squad/rank """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
@@ -1240,11 +1237,11 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
     for ev in reversed(event_log):
         key = event_key(ev)
 
-        # if no key present, we fallback to using a string representation for dedupe
+        # if no key present, we fall back to using a string representation for dedupe
         dedupe_key = key if key is not None else repr(ev)
         if dedupe_key in seen:
             continue
-        
+
         seen.add(dedupe_key)
         unique_events.append(ev)
         if len(unique_events) >= limit:
@@ -1252,7 +1249,7 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
     recent_events = list(reversed(unique_events))  # restore chronological order
 
-    # normalize the user name like scan_apollo does
+    # normalize the username like scan_apollo does
     normalized_target = normalize_name(user.display_name)
 
     accepted = 0
@@ -1263,7 +1260,7 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 
         """Safely extract the 'uid' like value from an accepted/declined entry.
            Accepts tuples/lists like (uid, extra) or plain strings/ints."""
-        
+
         if isinstance(entry, (list, tuple)) and len(entry) > 0:
             return entry[0]
         return entry
@@ -1272,15 +1269,16 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
         raw_accepted = event.get("accepted", [])
         raw_declined = event.get("declined", [])
 
-        # Normalize accepted names/ids so first stringify then normalise, 
-        # AND CHANGE FROM LIST TO SET BECAUSE PYTHON LISTS DONT HAVE UNIQUE INDEXING
+        # Normalize accepted names/ids so first stringify then normalize,
+        # AND CHANGE FROM LIST TO SET BECAUSE PYTHON LISTS DON'T HAVE UNIQUE INDEXING
         accepted_names = set()
         for entry in raw_accepted:
             uid = extract_uid(entry)
             try:
                 accepted_names.add(normalize_name(str(uid)))
             except Exception:
-                logging.exception("Error normalizing accepted entry in event %s: %r", event_key(event) or f"idx{idx}", entry)
+                logging.exception("Error normalizing accepted entry in event %s: %r", event_key(event) or f"idx{idx}",
+                                  entry)
 
         declined_names = set()
         for entry in raw_declined:
@@ -1288,7 +1286,8 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
             try:
                 declined_names.add(normalize_name(str(uid)))
             except Exception:
-                logging.exception("Error normalizing declined entry in event %s: %r", event_key(event) or f"idx{idx}", entry)
+                logging.exception("Error normalizing declined entry in event %s: %r", event_key(event) or f"idx{idx}",
+                                  entry)
 
         accepted_match = normalized_target in accepted_names
         declined_match = normalized_target in declined_names
@@ -1326,7 +1325,6 @@ async def check_member(interaction: discord.Interaction, user: discord.Member, l
 @bot.tree.command(name="rand", description="Generate a random number in a range.")
 @app_commands.describe(limit="Set your upper range (1 to 1,000,000)")
 async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 1_000_001] = 100):
-
     """ Generate a random number between 1 and `limit`. """
 
     result = secrets.randbelow(limit) + 1
@@ -1336,7 +1334,6 @@ async def rand(interaction: discord.Interaction, limit: app_commands.Range[int, 
 @bot.tree.command(name="coin", description="Flip a coin 'n' times.")
 @app_commands.describe(limit="How many flips to do (default is 1)")
 async def coin(interaction: discord.Interaction, limit: app_commands.Range[int, 1, 100] = 1):
-
     """  Command to flip a coin 'n' times. """
 
     outcomes = [random.choice(["Heads", "Tails"]) for _ in range(limit)]
@@ -1355,14 +1352,13 @@ async def coin(interaction: discord.Interaction, limit: app_commands.Range[int, 
             f"**Tails:** {tails}"
 
         )
-    
+
     await interaction.response.send_message(response)
 
 
 @bot.tree.command(name="summary", description="Generates a summary of attendance and some data.")
 @app_commands.describe(limit="How many Apollo events to summarize (min: 8, max: 24)")
 async def summary(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
-
     """ Summarizes user attendance for the last N Apollo events. Function calls 'scan_apollo_events' """
 
     await interaction.response.defer(thinking=True)
@@ -1372,7 +1368,7 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
         await interaction.followup.send("You must be an **NCO** to use this command.", ephemeral=True)
         return
 
-    # Clear before scanning to avoid stale data contaminating results (scan_apollo_events already calls event_log.clear() so this is redundant.)
+    # Clear before scanning to avoid stale data-contaminating results (scan_apollo_events already calls event_log.clear() so this is redundant.)
     event_log.clear()
 
     scanned_messages, logged = await scan_apollo_events(limit)
@@ -1390,11 +1386,11 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
         )
         return
 
-    # set the guild variable, and exclude roles from discord that we dont need to log attendance reactions for
+    # set the guild variable and exclude roles from discord that we don't need to log attendance reactions for
     guild = interaction.guild
     excluded_roles = {"Guest", "Reserves", "External Unit Rep"}
-    
-    # save the valid member's roles using list iteration, and check sure that they are not in the the excluded_roles list
+
+    # save the valid member's roles using list iteration and check sure that they are not in the excluded_roles list, 
     # then create valid_ids and map those ids to members
     valid_members = [
         m for m in guild.members
@@ -1418,7 +1414,7 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
     low_responders = defaultdict(list)
     threshold = limit // 2
 
-    # iterate over the valid ids and keep track of the user's response count, if its lower than 50%, save that user id and append to low_responders dict
+    # iterate over the valid ids and keep track of the user's response count, if it's lower than 50%, save that user id and append to low_responders dict
     for user_id in valid_ids:
         count = response_count.get(user_id, 0)
         if count <= threshold:
@@ -1431,7 +1427,7 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
         f"_Showing users with {threshold} or fewer responses (50% or less)_\n"
     ]
 
-    # check if no low responders and append to lines list appropriately, else concatonate and get low responders, then append those to lines
+    # check if no low responders and append to lines list appropriately, else concatenate and get low responders, then append those to lines
     if not low_responders:
         lines.append(f"All active members responded to more than {threshold} events!")
     else:
@@ -1442,9 +1438,10 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
                 for member in sorted(group, key=lambda m: m.display_name.lower()):
                     lines.append(f"- **{member.display_name}** ✅❌ | No Response: {limit - i}")
 
-    lines.append(f"\n_Scanned {scanned_messages} messages to find {limit} Apollo events. Logged {logged} participant responses._")
+    lines.append(
+        f"\n_Scanned {scanned_messages} messages to find {limit} Apollo events. Logged {logged} participant responses._")
 
-    # send the message by joining the lines list, send them chunk by chunk due to char limit
+    # send the message by joining the line list, send them chunk by chunk due to char limit
     message = "\n".join(lines)
     if len(message) > 1900:
         for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
@@ -1458,11 +1455,12 @@ async def summary(interaction: discord.Interaction, limit: app_commands.Range[in
 
 
 @bot.tree.command(name="scan_all_reactions", description="Scan recent messages for reactions and summarize them.")
-@app_commands.describe(channel="The channel to scan for reactions", limit="How many recent messages to scan (default is 5)")
-async def scan_all_reactions(interaction: discord.Interaction, channel: TextChannel, limit: app_commands.Range[int, 1, 100] = 5):
-
+@app_commands.describe(channel="The channel to scan for reactions",
+                       limit="How many recent messages to scan (default is 5)")
+async def scan_all_reactions(interaction: discord.Interaction, channel: TextChannel,
+                             limit: app_commands.Range[int, 1, 100] = 5):
     """ Function uses the TextChannel object from discord's library passed as a parameter, to allow the user to make this command
-        in any channel and from any channel, that the bot has message history and other relevant permissions for. """
+        in any channel and from any channel that the bot has message history and other relevant permissions for. """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
     if required_role is None:
@@ -1476,14 +1474,14 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
         await interaction.followup.send(f"Can't read message history in {channel.mention}.")
         return
 
-    # initialise scanned to 0, and a dict of emoji lists
+    # initialize scanned to 0, and a dict of emoji lists
     scanned = 0
-    
+
     # instead of a single emoji_summary, map message -> emoji -> users
     message_summaries = []
 
     # We want to check every message in the channel this command is made in, and for every message amount mentioned when making the "/command",
-    # increment the scanned counter, for the channel provided (dont use 'interaction.channel.history' if you want to preserve channel specificity)
+    # increment the scanned counter, for the channel provided (don't use 'interaction.channel.history' if you want to preserve channel specificity)
     async for msg in channel.history(limit=limit):
         scanned += 1
 
@@ -1494,7 +1492,7 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
         # Temporary dict of lists of reactions to store reactions for this message
         msg_reactions = defaultdict(list)
 
-        # Only consider users not bots
+        # Only consider users, not bots
         for reaction in msg.reactions:
             users = [user async for user in reaction.users()]
 
@@ -1502,34 +1500,32 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
             for user in users:
                 if user.bot:
                     continue
-                
-                # Set a var member, using Discord's guild object and use the get_member method for that user.id, also set display_name to that members
-                # display name, if the the user is a member, else just get the discord username (because nickname for non members might not be set)
-                member = interaction.guild.get_member(user.id)  
+
+                # Set a var member, using Discord's guild object and use the get_member method for that user.id, also set display_name to that member
+                # display name, if the user is a member, else just get the discord username (because nickname for non-members might not be set)
+                member = interaction.guild.get_member(user.id)
                 display_name = member.display_name if member else user.name
 
                 # append the msg_reactions temp dict with the emoji mapped to the display_name
                 msg_reactions[str(reaction.emoji)].append(display_name)
 
-
         if msg_reactions:
-
             # Trim message content to first 100 chars for readability
             content_preview = msg.content or "[Embed/Attachment/No Text]"
             content_preview = (content_preview[:100] + "...") if len(content_preview) > 100 else content_preview
 
-            # Now append the message summaries list we made earlier at start of function, with all of the relevant data needed to make sense of the output
+            # Now append the message summaries list we made earlier at start of function, with all the relevant data needed to make sense of the output
             # The data in question is:
-                # who wrote the message
-                # shortened preview of message
-                # link to jump to og message
-                # a dict of emoji : list of users who reacted
+            # who wrote the message
+            # shortened preview of message
+            # link to jump to og message
+            # a dict of emoji: list of users who reacted
             message_summaries.append({
 
-            "author": msg.author.display_name,
-            "content": content_preview,
-            "link": msg.jump_url,
-            "reactions": msg_reactions
+                "author": msg.author.display_name,
+                "content": content_preview,
+                "link": msg.jump_url,
+                "reactions": msg_reactions
 
             })
 
@@ -1541,18 +1537,17 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
     # Set a list of lines as an f string to show number of scanned messages
     lines = [f"**Reactions Summary (from last {scanned} messages in {channel.mention})**\n"]
 
-    # Now we create nested loops, the outer loop appends the message data, that we just appeneded to message/summaries, but here we want to append it to
-    # the lines list to sort of concatonate the message data for the summaries list AND the reactions thereof
+    # Now we create nested loops, the outer loop appends the message data that we just happened to message/summaries, but here we want to append it to
+    # the line list to sort of concatenate the message data for the summary list AND the reactions thereof
     for msg_data in message_summaries:
-        
-        # Append the data to the lines list, and update k:v pairs. Appending twice for better output and more readable, the second appnd is in markdown,
-        # for better discord look 
+
+        # Append the data to the lines list and update k:v pairs. Appending twice for better output and more readable, the second append is in Markdown,
+        # for a better discord look 
         lines.append(f"**Message by {msg_data['author']}**: {msg_data['content']}\n")
         lines.append(f"> [Jump to message]({msg_data['link']})")
 
         # Then for each emoji, user in the emoji_summary dict (we are unpacking the dict, using .items() to index into the dict)
         for emoji, users in msg_data['reactions'].items():
-
             # Get a set of unique users
             unique_users = set(users)
 
@@ -1573,12 +1568,11 @@ async def scan_all_reactions(interaction: discord.Interaction, channel: TextChan
 @bot.tree.command(name="leaderboard", description="Show a ranked summary leaderboard of accepted and declined")
 @app_commands.describe(limit="How many Apollo events to use (min: 8, max: 24)")
 async def leaderboard(interaction: discord.Interaction, limit: app_commands.Range[int, 8, 24] = 8):
-
-    """ 
+    """
     Command reads from the global event_log list and attendance_log dict to rank and summarize user attendance based on cached data,
         from using the scan_apollo command.
         - There is no persistent save implementation in attbot.py as I had no need for it, for that you might want to look at botscanner.py.
-        - Functionality of this command can be adapted for any other rank based uses, just read the comments and you'll get an idea.
+        - Functionality of this command can be adapted for any other rank-based uses, read the comments, and you'll get an idea.
     """
 
     required_role = discord.utils.get(interaction.user.roles, name="NCO")
@@ -1595,9 +1589,9 @@ async def leaderboard(interaction: discord.Interaction, limit: app_commands.Rang
     recent_events = event_log[-limit:]
 
     # now we want to set a dict for each type of reaction 
-    # NOTE--- in this case its only accepted and declined because thats my use case, you can have multiple, just follow this template/general idea
+    # NOTE--- in this case it's only accepted and declined because that's my use case, you can have multiple, just follow this template/general idea
 
-    # the general idea being, we want EACH parsed representation of a type of reaction-user mapping to be its own datastructure for cleanliness and 
+    # the general idea being, we want EACH parsed representation of a type of reaction-user mapping to be its own data structure for cleanliness and 
     # separation of concerns. I want the number of declined and accepted, a set of unique users and a dict of pretty names (nickname scanned by "scan_apollo")
     accepted_count = defaultdict(int)
     declined_count = defaultdict(int)
@@ -1609,8 +1603,7 @@ async def leaderboard(interaction: discord.Interaction, limit: app_commands.Rang
 
         # then for each normal user_id and the pretty version thereof in the accepted category list of that event,
         for user_id, pretty in event["accepted"]:
-
-            # increment the accepted count dict by 1, then for every user_id in the pretty_names dict, we set that to the pretty ie, the nickname, and 
+            # increment the accepted count dict by 1, then for every user_id in the pretty_names dict, we set that to the pretty i.e., the nickname, and
             # add that user_id to the set of unique users
             accepted_count[user_id] += 1
             pretty_names[user_id] = pretty
@@ -1618,14 +1611,13 @@ async def leaderboard(interaction: discord.Interaction, limit: app_commands.Rang
 
         # similar for declined users, just that we use event.get, a temp list of declined while iterating, to keep track of how many user_id and pretty
         for user_id, pretty in event.get("declined", []):
-
             # increment the declined users by 1, add that user_id to the unique users set, and strip any trailing/leading whitespace before setting
             # those user_id equal to the user_id in the pretty_names dict
             declined_count[user_id] += 1
             unique_users.add(user_id)
             pretty_names[user_id] = pretty.strip()
 
-    # now we want to sort the accepted users, by counting that dict and using a lambda function that sorts them by descending
+    # now we want to sort the accepted users by counting that dict and using a lambda function that sorts them by descending
     accepted_sorted = sorted(
         accepted_count.items(),
         key=lambda x: (-x[1], x[0])
@@ -1640,20 +1632,20 @@ async def leaderboard(interaction: discord.Interaction, limit: app_commands.Rang
     for i, (user_id, count) in enumerate(accepted_sorted, start=1):
         lines.append(f"{i}. **{pretty_names[user_id]}** - {count}/{total_events} events ✅")
 
-    # check how many unique attendees if at all
+    # check how many unique attendees, if at all
     if accepted_count:
         lines.append(f"\nTotal unique attendees (accepted): {len(accepted_count)}")
     else:
         lines.append("\nNo attendees found in last 8 events.")
 
     # then we make a declined exclusive dict, where we are using dict iteration to check key-name, for value-count, in the declined_count dict, is only there
-    # if its not there in the accepted_count dict. SO, if they declined, they should not be in accepted dict
+    # if it's not there in the accepted_count dict. SO, if they declined, they should not be in accepted dict
     declined_only = {
         name: count for name, count in declined_count.items()
         if name not in accepted_count
     }
 
-    # if that above dict is true, append to the lines list with an fstring to show the data, same as accepted_sorted
+    # if that above dict is true, append to the lines list with a fstring to show the data, same as accepted_sorted
     if declined_only:
 
         lines.append(f"\n**Declined (❌)**")
@@ -1663,7 +1655,6 @@ async def leaderboard(interaction: discord.Interaction, limit: app_commands.Rang
         )
 
         for i, (norm_name, count) in enumerate(declined_sorted, start=1):
-
             display_name = pretty_names.get(norm_name, norm_name).strip()
             lines.append(f"{i}. **{display_name}** - {count} declines ❌")
 
@@ -1701,13 +1692,12 @@ async def leaderboard(interaction: discord.Interaction, limit: app_commands.Rang
 
     # send large messages in chunks
     if len(message) > 1900:
-        for chunk in [message[i:i+1900] for i in range(0, len(message), 1900)]:
+        for chunk in [message[i:i + 1900] for i in range(0, len(message), 1900)]:
             await interaction.followup.send(chunk)
     else:
         await interaction.followup.send(message)
 
+
 # Run the bot with token of server
-bot.run(TOKEN)
-	
-	
-	
+if __name__ == "__main__":
+    bot.run(TOKEN)

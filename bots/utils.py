@@ -206,7 +206,7 @@ def get_random_quote_by_user(user_id: int, db_path=DB_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn. cursor()
 
-    cursor.execute("SELECT id, user_id, usenrame, quote, created_at FROM quotes WHERE id = ? ORDER BY RANDOM() LIMIT 1",
+    cursor.execute("SELECT id, user_id, username, quote, created_at FROM quotes WHERE user_id = ? ORDER BY RANDOM() LIMIT 1",
                     (user_id,)
     )
 
