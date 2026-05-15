@@ -39,6 +39,18 @@ Each event embed must include the following fields:
 | Total Signups | Aggregate count of accepted and declined across both squads |
 | Created By | The Discord user who created the event |
 
+### Discord universal format specifier/suffix
+
+**R: Relative, says "two weeks ago", or "in 5 years"**
+
+**D: Date, says "July 4, 2021"**
+
+**T: Time, "11:28:27 AM"**
+
+**t: Short Time, "11:28 AM"**
+
+**F: Full, "Monday, July 4, 2021 11:28:27 AM"**
+
 ### Reaction System
 
 Reactions are divided by squad. Each squad has two options:
