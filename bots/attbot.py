@@ -466,7 +466,7 @@ async def quote(interaction: Interaction, user: discord.Member = None):
     # set the data fields of the quote object in db as the row (duh), and extract the year, in iso format, then send the quote as a fstring with deets
     _,_, username, quote_text, created_at = row
     year = parser.isoparse(created_at).strftime("%Y")
-    await interaction.response.send_message(f'"{quote_text}" - {username}, {year}')
+    await interaction.response.send_message(f'"{quote_text}" - quote added by {username}, {year}')
 
 
 @bot.tree.command(name="addquote", description="Add a quote to the database.")
