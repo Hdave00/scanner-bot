@@ -165,7 +165,7 @@ def test_quote_without_user_returns_formatted_quote(attbot_module, monkeypatch):
     asyncio.run(attbot_module.quote.callback(interaction, None))
 
     assert interaction.response.sent_messages == [{
-        "message": '"Check your sectors." - Hastings, 2026',
+        "message": '"Check your sectors." - quote added by Hastings, 2026',
         "ephemeral": False,
         "view": None,
     }]
@@ -213,7 +213,7 @@ def test_quote_with_user_returns_formatted_quote(attbot_module, monkeypatch):
     asyncio.run(attbot_module.quote.callback(interaction, user))
 
     assert interaction.response.sent_messages == [{
-        "message": '"Stay frosty." - Mooses, 2025',
+        "message": '"Stay frosty." - quote added by Mooses, 2025',
         "ephemeral": False,
         "view": None,
     }]
