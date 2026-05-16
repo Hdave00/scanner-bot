@@ -136,7 +136,7 @@ def test_quote_with_user_when_none_found(attbot_module, monkeypatch):
     asyncio.run(attbot_module.quote.callback(interaction, user))
 
     assert interaction.response.sent_messages == [{
-        "message": "Mooses has no quotes yet.",
+        "message": "No quotes from Mooses yet.",
         "ephemeral": True,
         "view": None,
     }]
