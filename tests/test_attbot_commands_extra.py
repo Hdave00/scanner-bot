@@ -93,7 +93,7 @@ def test_quote_without_user_returns_quote(attbot_module, monkeypatch):
     row = (1, 5, "Hastings", "Check your sectors.", "2026-01-01T12:00:00+00:00")
     monkeypatch.setattr(attbot_module, "get_random_quote", lambda: row)
     asyncio.run(attbot_module.quote.callback(interaction, None))
-    assert interaction.response.sent_messages[0]["message"] == '"Check your sectors." - Hastings, 2026'
+    assert interaction.response.sent_messages[0]["message"] == '"Check your sectors." - quote added by Hastings, 2026'
 
 
 # --- myreminders with no reminders ---
