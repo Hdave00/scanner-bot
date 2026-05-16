@@ -20,7 +20,7 @@ import asyncio
 import sqlite3
 
 try:
-    from bots.utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote
+    from bots.utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote, migrate_add_quoted_user
 except ModuleNotFoundError:
     from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote
 
@@ -160,6 +160,7 @@ async def on_ready():
 
     # call the init function to get the db
     init_db()
+    migrate_add_quoted_user()  # runs after table is guaranteed to exist
 
     # Only load reminders ONCE per process lifetime if reminders are not loaded, then for each reminder in the get_reminders utils functions,
     # get that reminder and schedule it, set loaded reminders to True
@@ -443,39 +444,45 @@ async def dump_attendance(ctx):
 
 
 # TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
-@bot.tree.command(name="quote", description="Get a random quote. Pass a user to get one from them specifically.")
-@app_commands.describe(user="Optional: get a random quote from a specific user")
+@bot.tree.command(name="quote", description="Get a random quote.")
+@app_commands.describe(user="Optional: get quotes said by a specific user")
 async def quote(interaction: Interaction, user: discord.Member = None):
-
-    # first, see if a user arg is given, if yes, then only gives quotes from that user
     if user:
         row = get_random_quote_by_user(user.id)
         if not row:
             await interaction.response.send_message(
-                f"{user.display_name} has no quotes yet.", ephemeral=True
+                f"No quotes from {user.display_name} yet.", ephemeral=True
             )
             return
-    else:   # just give a random quote
+    else:
         row = get_random_quote()
         if not row:
             await interaction.response.send_message(
-            f"No quotes in the database yet.", ephemeral=True
+                "No quotes in the database yet.", ephemeral=True
             )
             return
 
-    # set the data fields of the quote object in db as the row (duh), and extract the year, in iso format, then send the quote as a fstring with deets
-    _,_, username, quote_text, created_at = row
+    # unpack 6 fields now (quoted_username added at the end)
+    _, _, adder_username, quote_text, created_at, quoted_username = row
     year = parser.isoparse(created_at).strftime("%Y")
-    await interaction.response.send_message(f'"{quote_text}" - quote added by {username}, {year}')
+    await interaction.response.send_message(
+    f'"{quote_text}" - {quoted_username}, added by {adder_username}, {year}'
+    )
 
 
 @bot.tree.command(name="addquote", description="Add a quote to the database.")
-@app_commands.describe(quote="The quote to add")
-async def addquote(interaction: Interaction, quote: str):
+@app_commands.describe(quote="The quote text",user="The person who said it")  # new required arg for user
 
-    # call add_quote from utils.py with user id and display name (nickname) and the related quote in database, then send an ephemeral msg about added quote
-    add_quote(interaction.user.id, interaction.user.display_name, quote)
-    await interaction.response.send_message(f'Added: "{quote}"- {interaction.user.display_name}', ephemeral=True
+async def addquote(interaction: Interaction, quote: str, user: discord.Member):
+    add_quote(
+        user_id=interaction.user.id,
+        username=interaction.user.display_name,
+        quote=quote,
+        quoted_user_id=user.id,             # who said it
+        quoted_username=user.display_name,  # their display name at time of adding
+    )
+    await interaction.response.send_message(
+        f'Added: "{quote}" - {user.display_name}', ephemeral=True
     )
 
 
@@ -496,9 +503,9 @@ async def deletequote(interaction: Interaction):
     # build a list of options, then for each row select the quote from the list of options,
     options = []
     for r in rows:
-        quote_id, _, _, quote_text, created_at = r
+        quote_id, _, _, quote_text, created_at, quoted_username = r  # unpack 6
         year = parser.isoparse(created_at).strftime("%Y")
-        label = f"{quote_text[:75]} ({year})"
+        label = f"{quote_text[:75]} ({year})"  # label can stay the same, or add quoted_username if useful
         options.append(discord.SelectOption(label=label, value=str(quote_id)))
 
     # then select from the option to choose what to delete

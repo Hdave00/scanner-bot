@@ -158,14 +158,14 @@ def test_quote_without_user_when_db_empty(attbot_module, monkeypatch):
 
 def test_quote_without_user_returns_formatted_quote(attbot_module, monkeypatch):
     interaction = MockInteraction()
-    row = (1, 5, "Hastings", "Check your sectors.", "2026-01-01T12:00:00+00:00")
+    row = (1, 5, "Hastings", "Check your sectors.", "2026-01-01T12:00:00+00:00", "Price")  # Price said it, Hastings added it
 
     monkeypatch.setattr(attbot_module, "get_random_quote", lambda: row)
 
     asyncio.run(attbot_module.quote.callback(interaction, None))
 
     assert interaction.response.sent_messages == [{
-        "message": '"Check your sectors." - quote added by Hastings, 2026',
+        "message": '"Check your sectors." - Price, added by Hastings, 2026',
         "ephemeral": False,
         "view": None,
     }]
@@ -173,18 +173,19 @@ def test_quote_without_user_returns_formatted_quote(attbot_module, monkeypatch):
 
 def test_addquote_calls_add_quote_and_replies(attbot_module, monkeypatch):
     interaction = MockInteraction(user_id=77, display_name="Rydah")
+    quoted_user = SimpleNamespace(id=99, display_name="Mooses")
     recorded = {}
 
-    def fake_add_quote(user_id, username, quote):
-        recorded["args"] = (user_id, username, quote)
+    def fake_add_quote(user_id, username, quote, quoted_user_id, quoted_username):
+        recorded["args"] = (user_id, username, quote, quoted_user_id, quoted_username)
 
     monkeypatch.setattr(attbot_module, "add_quote", fake_add_quote)
 
-    asyncio.run(attbot_module.addquote.callback(interaction, "Hold the flank."))
+    asyncio.run(attbot_module.addquote.callback(interaction, "Hold the flank.", quoted_user))
 
-    assert recorded["args"] == (77, "Rydah", "Hold the flank.")
+    assert recorded["args"] == (77, "Rydah", "Hold the flank.", 99, "Mooses")
     assert interaction.response.sent_messages == [{
-        "message": 'Added: "Hold the flank."- Rydah',
+        "message": 'Added: "Hold the flank." - Mooses',
         "ephemeral": True,
         "view": None,
     }]
@@ -206,14 +207,14 @@ def test_deletequote_no_user_quotes(attbot_module, monkeypatch):
 def test_quote_with_user_returns_formatted_quote(attbot_module, monkeypatch):
     interaction = MockInteraction()
     user = SimpleNamespace(id=99, display_name="Mooses")
-    row = (10, 99, "Mooses", "Stay frosty.", "2025-10-10T15:30:00+00:00")
+    row = (10, 42, "Hastings", "Stay frosty.", "2025-10-10T15:30:00+00:00", "Mooses")  # Mooses said it, Hastings added it
 
     monkeypatch.setattr(attbot_module, "get_random_quote_by_user", lambda user_id: row)
 
     asyncio.run(attbot_module.quote.callback(interaction, user))
 
     assert interaction.response.sent_messages == [{
-        "message": '"Stay frosty." - quote added by Mooses, 2025',
+        "message": '"Stay frosty." - Mooses, added by Hastings, 2025',
         "ephemeral": False,
         "view": None,
     }]
@@ -221,7 +222,7 @@ def test_quote_with_user_returns_formatted_quote(attbot_module, monkeypatch):
 
 def test_deletequote_with_rows_builds_select_view(attbot_module, monkeypatch):
     interaction = MockInteraction(user_id=55, display_name="Alpha")
-    rows = [(1, 55, "Alpha", "Alpha quote", "2026-02-01T10:00:00+00:00")]
+    rows = [(1, 55, "Alpha", "Alpha quote", "2026-02-01T10:00:00+00:00", "Price")]  # Price said it
     monkeypatch.setattr(attbot_module, "get_user_quotes", lambda user_id: rows)
 
     asyncio.run(attbot_module.deletequote.callback(interaction))

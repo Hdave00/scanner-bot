@@ -158,18 +158,36 @@ def delete_reminder(reminder_id: int, user_id: int, db_path=DB_PATH):
     return deleted > 0
 
 
-# TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
-def add_quote(user_id: int, username: str, quote: str, db_path=DB_PATH):
+def migrate_add_quoted_user(db_path=DB_PATH):
+
+    """Run once to add quoted_user columns if they don't exist yet."""
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+    try:
+        cursor.execute("ALTER TABLE quotes ADD COLUMN quoted_user_id INTEGER")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+    try:
+        cursor.execute("ALTER TABLE quotes ADD COLUMN quoted_username TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+    conn.close()
 
-    # add the time the quote was created, insert into database using sql command and give it a u_id
+# TODO add a quote function to let users add a quote, request a random quote, and pass an argument to request a quote from a specific person
+def add_quote(user_id: int, username: str, quote: str,
+              quoted_user_id: int, quoted_username: str,   # NEW
+              db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
     created_at = datetime.now(timezone.utc).isoformat()
     cursor.execute(
-        "INSERT INTO quotes (user_id, username, quote, created_at) VALUES (?, ?, ?, ?)",
-        (user_id, username, quote, created_at)
+        """INSERT INTO quotes
+           (user_id, username, quote, created_at, quoted_user_id, quoted_username)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (user_id, username, quote, created_at, quoted_user_id, quoted_username)
     )
-
     quote_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -189,29 +207,30 @@ def delete_quote(user_id: int, quote_id: int, db_path=DB_PATH):
 
 
 def get_random_quote(db_path=DB_PATH):
-
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
-    cursor.execute("SELECT id, user_id, username, quote, created_at FROM quotes ORDER BY RANDOM() LIMIT 1"
-    )   # get a random quote, select a random id, get its metadata, and get 1 only
-
-    row = cursor.fetchone()
-    cursor.close()
-    return row  # auto returns None if empty
-
-
-def get_random_quote_by_user(user_id: int, db_path=DB_PATH):
-
-    conn = sqlite3.connect(db_path)
-    cursor = conn. cursor()
-
-    cursor.execute("SELECT id, user_id, username, quote, created_at FROM quotes WHERE user_id = ? ORDER BY RANDOM() LIMIT 1",
-                    (user_id,)
+    cursor.execute(
+        """SELECT id, user_id, username, quote, created_at, quoted_username
+           FROM quotes ORDER BY RANDOM() LIMIT 1"""
     )
-
     row = cursor.fetchone()
-    cursor.close()
+    conn.close()
+    return row
+
+
+def get_random_quote_by_user(quoted_user_id: int, db_path=DB_PATH):
+    """Now filters by WHO SAID the quote, not who added it."""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT id, user_id, username, quote, created_at, quoted_username
+           FROM quotes
+           WHERE quoted_user_id = ?
+           ORDER BY RANDOM() LIMIT 1""",
+        (quoted_user_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
     return row  # None if user has no quotes
 
 

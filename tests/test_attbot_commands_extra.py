@@ -600,8 +600,8 @@ def test_deletequote_no_quotes(attbot_module):
 def test_deletequote_with_quotes_builds_view(attbot_module, monkeypatch):
     interaction = MockInteraction(user_id=55, display_name="TestUser")
     rows = [
-        (1, 55, "TestUser", "First quote", "2026-01-01T10:00:00+00:00"),
-        (2, 55, "TestUser", "Second quote", "2026-02-01T12:00:00+00:00"),
+        (1, 55, "TestUser", "First quote", "2026-01-01T10:00:00+00:00", "Price"),
+        (2, 55, "TestUser", "Second quote", "2026-02-01T12:00:00+00:00", "Mooses"),
     ]
 
     def fake_get_quotes(uid):
