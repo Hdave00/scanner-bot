@@ -90,10 +90,17 @@ class MockHistoryChannel:
 # --- quote command without user, data exists ---
 def test_quote_without_user_returns_quote(attbot_module, monkeypatch):
     interaction = MockInteraction()
-    row = (1, 5, "Hastings", "Check your sectors.", "2026-01-01T12:00:00+00:00")
+    row = (1, 5, "Hastings", "Check your sectors.", "2026-01-01T12:00:00+00:00", "Price")  # added "Price"
+
     monkeypatch.setattr(attbot_module, "get_random_quote", lambda: row)
+
     asyncio.run(attbot_module.quote.callback(interaction, None))
-    assert interaction.response.sent_messages[0]["message"] == '"Check your sectors." - quote added by Hastings, 2026'
+
+    assert interaction.response.sent_messages == [{
+        "message": '"Check your sectors." - Price, added by Hastings, 2026',
+        "ephemeral": False,
+        "view": None,
+    }]
 
 
 # --- myreminders with no reminders ---

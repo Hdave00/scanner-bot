@@ -69,9 +69,11 @@ def init_db(db_path=DB_PATH):
         CREATE TABLE IF NOT EXISTS quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            username TEXT NULL,
+            username TEXT NOT NULL,
             quote TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            quoted_user_id INTEGER,
+            quoted_username TEXT
         )
     """)
     conn.commit()
