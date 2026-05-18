@@ -240,13 +240,11 @@ def get_user_quotes(user_id: int, db_path=DB_PATH):
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
-    # get the specific user's quotes, used in indexing and deleting/modifying a quote
+    
     cursor.execute(
-        "SELECT id, user_id, username, quote, created_at FROM quotes WHERE user_id = ?",
+        "SELECT id, user_id, username, quote, created_at, quoted_username FROM quotes WHERE user_id = ?",
         (user_id,)
     )
-
     rows = cursor.fetchall()
     conn.close()
     return rows
