@@ -486,7 +486,7 @@ def test_scan_apollo_events_respects_limit(attbot_module, monkeypatch):
 
     class MockGuild:
         chunked = True
-        members = [SimpleNamespace(id=1, display_name="Miller")]
+        members = [SimpleNamespace(id=1, display_name="Miller", name="Miller")]
 
     monkeypatch.setattr(attbot_module.bot, "get_channel", lambda x: MockChan())
     monkeypatch.setattr(attbot_module.bot, "get_guild", lambda x: MockGuild())
@@ -522,7 +522,7 @@ def test_scan_apollo_events_chunk_guild(attbot_module, monkeypatch):
 
     class ChunkedGuild:
         chunked = False
-        members = [SimpleNamespace(id=1, display_name="Miller")]
+        members = [SimpleNamespace(id=1, display_name="Miller", name="Miller")]
 
         async def chunk(self):
             chunked[0] = True
@@ -715,8 +715,8 @@ def test_scan_apollo_events_declined_x_field(attbot_module, monkeypatch):
     class DeclinedXGuild:
         chunked = True
         members = [
-            SimpleNamespace(id=1, display_name="Miller"),
-            SimpleNamespace(id=2, display_name="Rydah"),
+            SimpleNamespace(id=1, display_name="Miller", name="Miller"),
+            SimpleNamespace(id=2, display_name="Rydah", name="Rydah"),
         ]
 
     monkeypatch.setattr(attbot_module.bot, "get_channel", lambda x: DeclinedXChan())
@@ -759,8 +759,8 @@ def test_scan_apollo_events_x_field_name(attbot_module, monkeypatch):
     class XFieldNameGuild:
         chunked = True
         members = [
-            SimpleNamespace(id=1, display_name="Miller"),
-            SimpleNamespace(id=2, display_name="Rydah"),
+            SimpleNamespace(id=1, display_name="Miller", name="Miller"),
+            SimpleNamespace(id=2, display_name="Rydah", name="Rydah"),
         ]
 
     monkeypatch.setattr(attbot_module.bot, "get_channel", lambda x: XFieldNameChan())
@@ -800,7 +800,7 @@ def test_scan_apollo_events_unresolved_name(attbot_module, monkeypatch, capfd):
 
     class UnresolvedGuild:
         chunked = True
-        members = [SimpleNamespace(id=1, display_name="Miller")]
+        members = [SimpleNamespace(id=1, display_name="Miller", name="Miller")]
 
     monkeypatch.setattr(attbot_module.bot, "get_channel", lambda x: UnresolvedChan())
     monkeypatch.setattr(attbot_module.bot, "get_guild", lambda x: UnresolvedGuild())
@@ -1036,7 +1036,7 @@ def test_scan_apollo_events_desc_fallback(attbot_module, monkeypatch):
 
     class DescGuild:
         chunked = True
-        members = [SimpleNamespace(id=1, display_name="Miller"), SimpleNamespace(id=2, display_name="Rydah")]
+        members = [SimpleNamespace(id=1, display_name="Miller", name="Miller"), SimpleNamespace(id=2, display_name="Rydah", name="Rydah")]
 
     monkeypatch.setattr(attbot_module.bot, "get_channel", lambda x: DescChan())
     monkeypatch.setattr(attbot_module.bot, "get_guild", lambda x: DescGuild())
