@@ -24,7 +24,7 @@ try:
 except ModuleNotFoundError:
     from utils import init_db, get_user_reminders, add_reminder, delete_reminder, get_reminders, add_quote, get_random_quote, get_random_quote_by_user, get_user_quotes, delete_quote, migrate_add_quoted_user
 
-__version__ = "2.3"
+__version__ = "2.4"
 
 # Configure logging
 logging.basicConfig(
@@ -122,10 +122,17 @@ def already_logged(pseudo_id):
 
 
 def normalize_name(name: str) -> str:
-    """ Using regex, we normalize scanned names to pass into other functions. """
+    """Using regex, we normalize scanned names to pass into other functions."""
 
     name = name.lower()
-    name = re.sub(r"[^\w\s]", "", name)  # remove punctuation
+
+    # NOTE: The '/' character is explicitly preserved here to maintain rank formats like MSPC/5, LCPL/3, etc.
+    # Previously, '/' was stripped as punctuation which caused MSPC/5 and MSPC/6 to both normalize
+    # to 'mspc5' and 'mspc6'- breaking fuzzy matching in resolve_member when a member was promoted.
+    # If the server's rank/naming structure changes in the future (e.g. uses '-' or '.' as a separator
+    # instead of '/'), this regex will need to be updated to preserve that character instead.
+    name = re.sub(r"[^\w\s/]", "", name)
+
     name = re.sub(r"\s+", " ", name)  # normalize whitespace
     return name.strip()
 
@@ -244,6 +251,37 @@ async def reminder_task(reminder_id, user_id, channel_id, message, remind_time, 
         scheduled_reminders.pop(reminder_id, None)
 
 
+def resolve_member(name: str, display_lookup: dict, username_lookup: dict) -> discord.Member | None:
+
+    """ function resolves a members name, by passing in name, display name and username, mapping them to a discord member object and
+     calling the 'normalize_name' function in order to try 3 different methods of logging a user. """
+
+    normalized = normalize_name(name)
+
+    # try current display name (works most of the time with nicknames if member is not promoted to nickname not changed)
+    member = display_lookup.get(normalized)
+    if member:
+        return member
+
+    # try stable @username
+    member = username_lookup.get(normalized)
+    if member:
+        return member
+
+    # partial prefix match on display name (catches MSPC/5 -> MSPC/6 renames)
+    # NOTE----Only match if exactly one member starts with the same prefix
+    matches = [
+        m for key, m in display_lookup.items()
+        if key.startswith(normalized[:6]) and len(normalized) >= 4
+    ]
+    if len(matches) == 1:
+        print(f"[DEBUG] Fuzzy matched '{name}' -> '{matches[0].display_name}'")
+        return matches[0]
+
+    print(f"[DEBUG] Failed to resolve: raw='{name}' normalized='{normalized}'")
+    return None
+
+
 async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
     """
     Scans the channel history to collect exactly `limit` Apollo events.
@@ -273,9 +311,15 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
     if not guild.chunked:
         await guild.chunk()
 
-    # build quick lookup table
-    member_lookup = {
+    # Primary lookup: current display name (nickname)
+    member_lookup_display = {
         normalize_name(member.display_name): member
+        for member in guild.members
+    }
+
+    # Secondary lookup: stable @username (never changes on promotion)
+    member_lookup_username = {
+        normalize_name(member.name): member
         for member in guild.members
     }
 
@@ -323,20 +367,13 @@ async def scan_apollo_events(limit: int | None = None) -> tuple[int, int]:
         # and now hopefully normalized strings are not stored as IDs
         resolved_attendees = []
         for name in attendees:
-            normalized = normalize_name(name)
-            member = member_lookup.get(normalized)
+            member = resolve_member(name, member_lookup_display, member_lookup_username)
             if member:
                 resolved_attendees.append((member.id, member.display_name))
-            else:
-                print(f"[DEBUG] Failed to resolve: raw='{name}' normalized='{normalized}'")
-
-        # Ddebug line, print what the lookup table keys look like
-        print(f"[DEBUG] Sample lookup keys: {list(member_lookup.keys())[:10]}")
 
         resolved_declined = []
         for name in declined:
-            normalized = normalize_name(name)
-            member = member_lookup.get(normalized)
+            member = resolve_member(name, member_lookup_display, member_lookup_username)
             if member:
                 resolved_declined.append((member.id, member.display_name))
 

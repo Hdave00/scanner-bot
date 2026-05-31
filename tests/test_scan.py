@@ -53,9 +53,13 @@ class MockMessage:
 
 # mock member to again have the same attribute as the actual discord scenario ie, the user's id and displace_name, pass both to the init
 class MockMember:
-    def __init__(self, id, display_name):
+    def __init__(self, id, display_name, name=None):
         self.id = id
         self.display_name = display_name
+        # 'name' is the stable @username (never changes on promotion).
+        # Falls back to display_name if not provided, mirroring how Discord
+        # members without a separate username would behave.
+        self.name = name if name is not None else display_name
 
 # create mock guild, we want to send the messages in the server as chunks (due to char limit), so set chunked = True
 # Then pass in the MockMember, and let the guild class inherit the attributes of the mockmembers, pass in the id and display name (those are attributes)
@@ -63,9 +67,11 @@ class MockGuild:
     def __init__(self):
         self.chunked = True
         self.members = [
-            MockMember(1, "Miller"),
-            MockMember(2, "Rydah"),
-            MockMember(3, "Mooses"),
+            # display_name is the current nickname (can change on promotion e.g. MSPC/5 -> MSPC/6)
+            # name is the stable @username used as fallback in resolve_member
+            MockMember(1, "Miller", name="miller_stable"),
+            MockMember(2, "Rydah", name="rydah_stable"),
+            MockMember(3, "Mooses", name="mooses_stable"),
         ]
 
 # then create a mock channel class, that passes total messages to scan, repects the limit provided and iterates over each message and simulate and async
