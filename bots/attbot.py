@@ -1312,7 +1312,7 @@ async def check_member(interaction: discord.Interaction, user: discord.Member,
     recent_events = list(reversed(unique_events))  # restore chronological order
 
     # normalize the username like scan_apollo does
-    normalized_target = normalize_name(user.display_name)
+    target_id = user.id
 
     accepted = 0
     declined = 0
@@ -1333,37 +1333,33 @@ async def check_member(interaction: discord.Interaction, user: discord.Member,
 
         # Normalize accepted names/ids so first stringify then normalize,
         # AND CHANGE FROM LIST TO SET BECAUSE PYTHON LISTS DON'T HAVE UNIQUE INDEXING
-        accepted_names = set()
+        accepted_ids = set()
         for entry in raw_accepted:
             uid = extract_uid(entry)
             try:
-                accepted_names.add(normalize_name(str(uid)))
+                accepted_ids.add(int(uid))
             except Exception:
-                logging.exception("Error normalizing accepted entry in event %s: %r", event_key(event) or f"idx{idx}",
-                                  entry)
+                logging.exception("Error extracting accepted entry in event %s: %r", event_key(event) or f"idx{idx}", entry)
 
-        declined_names = set()
+        declined_ids = set()
         for entry in raw_declined:
             uid = extract_uid(entry)
             try:
-                declined_names.add(normalize_name(str(uid)))
+                declined_ids.add(int(uid))
             except Exception:
-                logging.exception("Error normalizing declined entry in event %s: %r", event_key(event) or f"idx{idx}",
-                                  entry)
+                logging.exception("Error extracting declined entry in event %s: %r", event_key(event) or f"idx{idx}", entry)
 
-        accepted_match = normalized_target in accepted_names
-        declined_match = normalized_target in declined_names
+        accepted_match = target_id in accepted_ids
+        declined_match = target_id in declined_ids
 
         # log per-event details to help debug why counts are incremented
         logging.debug(
-            "check_member: event_idx=%d key=%s raw_accepted=%r accepted_norm=%r accepted_match=%s raw_declined=%r declined_norm=%r declined_match=%s",
+            "check_member: event_idx=%d key=%s accepted_ids=%r accepted_match=%s declined_ids=%r declined_match=%s",
             idx,
             event_key(event) or "N/A",
-            raw_accepted,
-            accepted_names,
+            accepted_ids,
             accepted_match,
-            raw_declined,
-            declined_names,
+            declined_ids,
             declined_match
         )
 
