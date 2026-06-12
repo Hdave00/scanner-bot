@@ -242,7 +242,15 @@ def test_check_member_accepted(attbot_module):
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(display_name="Miller")
+    user = SimpleNamespace(id="miller", display_name="Miller")
+    attbot_module.event_log.append({
+    "accepted": [(1, "Miller"), (2, "Rydah")],
+    "declined": [(3, "Mooses")],
+    })
+    attbot_module.event_log.append({
+    "accepted": [(1, "Miller")],
+    "declined": [],
+    })
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=2))
 
     out = interaction.followup.messages[0]["message"]
@@ -260,7 +268,15 @@ def test_check_member_declined(attbot_module):
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(display_name="Mooses")
+    user = SimpleNamespace(id="mooses", display_name="Mooses")
+    attbot_module.event_log.append({
+    "accepted": [(1, "Miller")],
+    "declined": [(2, "Mooses")],
+    })
+    attbot_module.event_log.append({
+        "accepted": [(1, "Miller")],
+        "declined": [(2, "Mooses")],
+    })
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=1))
 
     out = interaction.followup.messages[0]["message"]
@@ -277,7 +293,7 @@ def test_check_member_no_response(attbot_module):
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(display_name="Mooses")
+    user = SimpleNamespace(id="mooses", display_name="Mooses")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=1))
 
     out = interaction.followup.messages[0]["message"]
@@ -294,7 +310,7 @@ def test_check_member_with_string_ids(attbot_module):
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(display_name="Miller")
+    user = SimpleNamespace(id= "miller", display_name="Miller")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=1))
 
     out = interaction.followup.messages[0]["message"]
@@ -1055,7 +1071,7 @@ def test_check_member_event_key_fallback(attbot_module):
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(display_name="Miller")
+    user = SimpleNamespace(id="miller", display_name="Miller")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=2))
 
     out = interaction.followup.messages[0]["message"]
