@@ -232,25 +232,17 @@ def test_check_member_insufficient_events(attbot_module):
 def test_check_member_accepted(attbot_module):
     attbot_module.event_log.clear()
     attbot_module.event_log.append({
-        "accepted": [("miller", "Miller"), ("rydah", "Rydah")],
-        "declined": [("mooses", "Mooses")],
+        "accepted": [(1, "Miller"), (2, "Rydah")],
+        "declined": [(3, "Mooses")],
     })
     attbot_module.event_log.append({
-        "accepted": [("miller", "Miller")],
+        "accepted": [(1, "Miller")],
         "declined": [],
     })
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(id="miller", display_name="Miller")
-    attbot_module.event_log.append({
-    "accepted": [(1, "Miller"), (2, "Rydah")],
-    "declined": [(3, "Mooses")],
-    })
-    attbot_module.event_log.append({
-    "accepted": [(1, "Miller")],
-    "declined": [],
-    })
+    user = SimpleNamespace(id=1, display_name="Miller")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=2))
 
     out = interaction.followup.messages[0]["message"]
@@ -262,21 +254,13 @@ def test_check_member_accepted(attbot_module):
 def test_check_member_declined(attbot_module):
     attbot_module.event_log.clear()
     attbot_module.event_log.append({
-        "accepted": [("miller", "Miller")],
-        "declined": [("mooses", "Mooses")],
+        "accepted": [(1, "Miller")],
+        "declined": [(2, "Mooses")],
     })
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(id="mooses", display_name="Mooses")
-    attbot_module.event_log.append({
-    "accepted": [(1, "Miller")],
-    "declined": [(2, "Mooses")],
-    })
-    attbot_module.event_log.append({
-        "accepted": [(1, "Miller")],
-        "declined": [(2, "Mooses")],
-    })
+    user = SimpleNamespace(id=2, display_name="Mooses")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=1))
 
     out = interaction.followup.messages[0]["message"]
@@ -293,7 +277,7 @@ def test_check_member_no_response(attbot_module):
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(id="mooses", display_name="Mooses")
+    user = SimpleNamespace(id=3, display_name="Mooses")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=1))
 
     out = interaction.followup.messages[0]["message"]
@@ -301,21 +285,8 @@ def test_check_member_no_response(attbot_module):
 
 
 # --- check_member with tuple-like entries ---
-def test_check_member_with_string_ids(attbot_module):
-    attbot_module.event_log.clear()
-    attbot_module.event_log.append({
-        "accepted": ["miller"],
-        "declined": [],
-    })
-
-    role = SimpleNamespace(name="NCO")
-    interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(id= "miller", display_name="Miller")
-    asyncio.run(attbot_module.check_member.callback(interaction, user, limit=1))
-
-    out = interaction.followup.messages[0]["message"]
-    assert "Accepted: **1**" in out
-
+# def test_check_member_with_string_ids(attbot_module): NOTE -> test is now invalid, t was testing the old string-ID behaviour which no longer exists.
+    
 
 # --- debug_apollo command ---
 def test_debug_apollo_role_required(attbot_module):
@@ -1066,12 +1037,12 @@ def test_scan_apollo_events_desc_fallback(attbot_module, monkeypatch):
 def test_check_member_event_key_fallback(attbot_module):
     attbot_module.event_log.clear()
     # Events without standard keys use repr() for dedup
-    attbot_module.event_log.append({"data": "event1", "accepted": [("miller", "Miller")]})
+    attbot_module.event_log.append({"data": "event1", "accepted": [(1, "Miller")]})
     attbot_module.event_log.append({"data": "event2", "accepted": []})
 
     role = SimpleNamespace(name="NCO")
     interaction = MockCommandInteraction(roles=[role])
-    user = SimpleNamespace(id="miller", display_name="Miller")
+    user = SimpleNamespace(id=1, display_name="Miller")
     asyncio.run(attbot_module.check_member.callback(interaction, user, limit=2))
 
     out = interaction.followup.messages[0]["message"]
