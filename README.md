@@ -1,6 +1,6 @@
 # Apollo Scanner Bot
 
-**Reverse-engineering Apollo event embeds and other event bot embeds to restore lost functionality for Discord communities.**
+**Extracting Apollo event embeds and other event bot embeds to restore lost functionality for Discord communities.**
 
 ## Docs
 - [Discord API](https://discord.com/developers/docs/reference)
