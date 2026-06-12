@@ -14,7 +14,7 @@
 
 This bot **IS NOT** a replacement for Apollo, rather an adaptable secondary "drone-bot" designed to be modular in order to support most event bots' paid tier like features, with some programming knowledge. The examples provided in source code are referencing the needs of a milsim gaming community, but it can be adapted for literally anything else. 
 
-- This tool was created in response to Apollo’s shift to paid features that limit accessibility for small communities. Rather than replicating Apollo, this bot **reads and summarizes Apollo’s embeds**, acting as a diagnostic tool to **reverse engineer Apollo’s behavior** for further automation or analytics.
+- This tool was created in response to Apollo’s shift to paid features that limit accessibility for small communities. Rather than replicating Apollo, this bot **reads and summarizes Apollo’s embeds**, acting as a diagnostic tool to **extract bot embeds and use that data to extend functionality** for further automation or analytics.
 
 ## Features
 
