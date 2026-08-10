@@ -285,7 +285,7 @@ def test_check_member_no_response(attbot_module):
 
 
 # --- check_member with tuple-like entries ---
-# def test_check_member_with_string_ids(attbot_module): NOTE -> test is now invalid, t was testing the old string-ID behaviour which no longer exists.
+# def test_check_member_with_string_ids(attbot_module): NOTE -> test is now invalid, it was testing the old string-ID behaviour which no longer exists.
     
 
 # --- debug_apollo command ---
